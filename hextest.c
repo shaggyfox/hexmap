@@ -28,16 +28,23 @@ static void draw(void *data)
   struct screen_pos s_pos;
   struct cube_pos c_pos;
   struct map_pos m_pos;
-  s_pos.x = mouse_x;
-  s_pos.y = mouse_y;
+  s_pos.x = mouse_x + WIDTH / 4;
+  s_pos.y = mouse_y - HEIGHT / 4;
   screen2cube(&s_pos, &c_pos);
   cube2map(&c_pos, &m_pos);
+  draw_color(0,0,0,255);
   clear_screen();
-  draw_frame(s_pos.x, s_pos.y, tileset_get_frame_by_id(glob_tiles, 0));
   text_use_font(FONT_TINY);
   text_printf(0,0, "%03i,%03i", mouse_x, mouse_y);
   text_use_font(FONT_DEFAULT);
   text_printf(0,10, "%0.2f,%0.2f", m_pos.x, m_pos.y);
+  m_pos.x = floorf(m_pos.x);
+  m_pos.y = floorf(m_pos.y);
+  map2cube(&m_pos, &c_pos);
+  cube2screen(&c_pos, &s_pos);
+  draw_frame(s_pos.x, s_pos.y, tileset_get_frame_by_id(glob_tiles, 0));
+  draw_color(255,255,255,255);
+  draw_point(mouse_x, mouse_y);
 }
 
 static void key_up(int key, void *data)
