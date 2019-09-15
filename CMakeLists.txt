@@ -11,9 +11,10 @@ endif()
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
 # you may generate c-headers from any binary data
-#generate_data(${CMAKE_CURRENT_SOURCE_DIR}/bin_blob generated_header.h name_of_variable)
+generate_data(${CMAKE_CURRENT_SOURCE_DIR}/hextile.png hextile.h hextile)
+#add_executable(my_game my_game.c ${CMAKE_CURRENT_BINARY_DIR}/generated_header.h)
 
-add_executable(hextest hextest.c hex.c hex.h)
+add_executable(hextest hextest.c hex.c hex.h ${CMAKE_CURRENT_BINARY_DIR}/hextile.h)
 target_link_libraries(hextest engine)
 target_compile_options(hextest PUBLIC ${ENGINE_CFLAGS})
 

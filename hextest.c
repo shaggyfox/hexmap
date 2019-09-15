@@ -1,13 +1,16 @@
 #include "engine.h"
 #include "hex.h"
+#include "hextile.h"
 
 int mouse_x = 0;
 int mouse_y = 0;
+struct tileset *glob_tiles = NULL;
 
 static void init(void **data)
 {
   draw_color(0,0,0,255);
   text_color(150,150,150,255);
+  glob_tiles = tileset_load_from_file("../hextile.json");
 }
 
 static void update(void *data, float delta)
@@ -30,6 +33,7 @@ static void draw(void *data)
   screen2cube(&s_pos, &c_pos);
   cube2map(&c_pos, &m_pos);
   clear_screen();
+  draw_frame(s_pos.x, s_pos.y, tileset_get_frame_by_id(glob_tiles, 0));
   text_use_font(FONT_TINY);
   text_printf(0,0, "%03i,%03i", mouse_x, mouse_y);
   text_use_font(FONT_DEFAULT);
