@@ -1,23 +1,5 @@
+#include "hex.h"
 #include <stdio.h>
-
-struct screen_pos {
-  int x;
-  int y;
-};
-
-struct map_pos {
-  float x;
-  float y;
-};
-
-struct cube_pos {
-  float x;
-  float y;
-  float z;
-};
-
-#define WIDTH 12
-#define HEIGHT 8
 
 void cube2screen(struct cube_pos* c_pos, struct screen_pos *s_pos)
 {
@@ -27,15 +9,15 @@ void cube2screen(struct cube_pos* c_pos, struct screen_pos *s_pos)
 
 void screen2cube(struct screen_pos *s_pos, struct cube_pos *c_pos)
 {
-  c_pos->x = (2 * s_pos->y) / (3 * HEIGHT) + (s_pos->x / WIDTH);
-  c_pos->y = (2 * s_pos->y) / (3 * HEIGHT) - (s_pos->y / WIDTH);
+  c_pos->x = (float)(2 * s_pos->y) / (float)(3 * HEIGHT) + (float)(s_pos->x / WIDTH);
+  c_pos->y = (float)(2 * s_pos->y) / (float)(3 * HEIGHT) - (float)(s_pos->x / WIDTH);
   c_pos->z = -c_pos->x - c_pos->y;
 }
 
 void cube2map(struct cube_pos *c_pos, struct map_pos *m_pos)
 {
   m_pos->x = c_pos->x + c_pos->z;
-  m_pos->y = -c_pos->y;
+  m_pos->y = -c_pos->z;
 }
 
 void map2cube(struct map_pos *m_pos, struct cube_pos *c_pos)
@@ -75,16 +57,17 @@ void read_map_pos(struct map_pos *m_pos)
 {
   scanf("%f %f", &m_pos->x, &m_pos->y);
 }
-
+/*
 int main()
 {
   while(1) {
     struct screen_pos s_pos;
     struct cube_pos c_pos;
     struct map_pos m_pos;
-    read_map_pos(&m_pos);
-    map2cube(&m_pos, &c_pos);
-    cube2screen(&c_pos, &s_pos);
+
+    read_screen_pos(&s_pos);
+    screen2cube(&s_pos, &c_pos);
+    cube2map(&c_pos, &m_pos);
 
     print_map_pos(&m_pos);
     print_cube_pos(&c_pos);
@@ -92,4 +75,4 @@ int main()
 
   }
   return 0;
-}
+}*/
