@@ -10,7 +10,7 @@ static void init(void **data)
 {
   draw_color(0,0,0,255);
   text_color(150,150,150,255);
-  glob_tiles = tileset_load_from_file("../hextile.json");
+  glob_tiles = tileset_load_raw_from_file("../hextile.png", 20, 16);
 }
 
 static void update(void *data, float delta)
@@ -28,19 +28,19 @@ static void draw(void *data)
   struct screen_pos s_pos;
   struct cube_pos c_pos;
   struct map_pos m_pos;
-  s_pos.x = mouse_x + WIDTH / 4;
-  s_pos.y = mouse_y - HEIGHT / 4;
+  s_pos.x = mouse_x - WIDTH / 2;// - HEIGHT; //WIDTH / 3;
+  s_pos.y = mouse_y - HEIGHT / 2; // + WIDTH/8;// - HEIGHT / 4;
   screen2cube(&s_pos, &c_pos);
+  cube_round(&c_pos);
   cube2map(&c_pos, &m_pos);
   draw_color(0,0,0,255);
   clear_screen();
-  text_use_font(FONT_TINY);
-  text_printf(0,0, "%03i,%03i", mouse_x, mouse_y);
-  text_use_font(FONT_DEFAULT);
-  text_printf(0,10, "%0.2f,%0.2f", m_pos.x, m_pos.y);
-  m_pos.x = floorf(m_pos.x);
-  m_pos.y = floorf(m_pos.y);
-  map2cube(&m_pos, &c_pos);
+  //text_use_font(FONT_TINY);
+  text_printf(0,0, "%03i %03i", mouse_x, mouse_y);
+  text_printf(0,10, "%0.02f %0.02f %0.02f", c_pos.x, c_pos.y, c_pos.z);
+  map_to_offset(&m_pos);
+  text_printf(0,20, "%0.2f %0.2f", m_pos.x, m_pos.y);
+  //map2cube(&m_pos, &c_pos);
   cube2screen(&c_pos, &s_pos);
   draw_frame(s_pos.x, s_pos.y, tileset_get_frame_by_id(glob_tiles, 0));
   draw_color(255,255,255,255);
@@ -53,9 +53,9 @@ static void key_up(int key, void *data)
 }
 
 static struct game_ctx ctx = {
-  .screen_width = 320,
-  .screen_height = 240,
-  .screen_scale = 3,
+  .screen_width = 32*4,
+  .screen_height = 24*4,
+  .screen_scale = 8,
   .game_init = init,
   .game_update = update,
   .game_draw = draw,

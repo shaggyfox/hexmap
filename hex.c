@@ -1,5 +1,38 @@
 #include "hex.h"
 #include <stdio.h>
+#include <math.h>
+
+void cube_round(struct cube_pos *c_pos)
+{
+  float rx = roundf(c_pos->x);
+  float ry = roundf(c_pos->y);
+  float rz = roundf(c_pos->z);
+
+  float x_diff = fabs(rx - c_pos->x);
+  float y_diff = fabs(ry - c_pos->y);
+  float z_diff = fabs(rz - c_pos->z);
+
+  if (x_diff > y_diff && x_diff > z_diff) {
+    rx = -ry-rz;
+  } else if (y_diff > z_diff) {
+    ry = -rx-rz;
+  } else {
+    rz = -rx-ry;
+  }
+  c_pos->x = rx;
+  c_pos->y = ry;
+  c_pos->z = rz;
+}
+
+void map_to_offset(struct map_pos *m_pos)
+{
+  m_pos->x += floorf(m_pos->y / 2);
+}
+
+void map_from_offset(struct map_pos *m_pos)
+{
+  m_pos->x -= floorf(m_pos->y / 2);
+}
 
 void cube2screen(struct cube_pos* c_pos, struct screen_pos *s_pos)
 {
