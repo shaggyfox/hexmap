@@ -22,6 +22,7 @@ struct cube_pos {
 void map_to_offset(struct map_pos *m_pos, struct map_pos *o_pos);
 void map_from_offset(struct map_pos *o_pos, struct map_pos *m_pos);
 void cube_round(struct cube_pos *c_pos);
+void map_round(struct map_pos *m_pos);
 void cube2screen(struct cube_pos* c_pos, struct screen_pos *s_pos);
 void screen2cube(struct screen_pos *s_pos, struct cube_pos *c_pos);
 void cube2map(struct cube_pos *c_pos, struct map_pos *m_pos);

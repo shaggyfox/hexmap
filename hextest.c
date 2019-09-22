@@ -38,7 +38,7 @@ static void draw_map_tile(int x, int y, int w, int h, struct map_pos *pos, int i
   int center_y = (h - HEIGHT) / 2;
   struct screen_pos screen;
   offset_map2screen(pos, &screen);
-  draw_frame(center_x + screen.x, center_y + screen.y, tileset_get_frame_by_id(glob_tiles, id));
+  draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, id));
 }
 
 static void draw_map_test(int x, int y, int w, int h)
@@ -47,13 +47,13 @@ static void draw_map_test(int x, int y, int w, int h)
   int center_x = (w - WIDTH) / 2;
   int center_y = (h - HEIGHT) / 2;
 
-  struct map_pos pos = {.x = 0, .y = -5};
+  struct map_pos pos;
   struct screen_pos screen;
   offset_map2screen(&pos, &screen);
   for (pos.y = -5; pos.y < 5; ++pos.y) {
     for (pos.x = -5; pos.x < 5; ++pos.x) {
       offset_map2screen(&pos, &screen);
-      draw_frame(center_x + screen.x, center_y + screen.y, tileset_get_frame_by_id(glob_tiles, 0));
+      draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, 0));
     }
   }
 }
@@ -63,16 +63,22 @@ static void draw_map_test_mouse(int x, int y, int w, int h)
   int center_x = w / 2;
   int center_y = h / 2;
   struct screen_pos s_pos;
+  struct screen_pos s_pos2;
   struct cube_pos c_pos;
   struct map_pos m_pos;
+  struct map_pos plain_pos;
+  struct map_pos plain_pos_off;
   s_pos.x = mouse_x - center_x;
   s_pos.y = mouse_y - center_y;
 
   screen2cube(&s_pos, &c_pos);
+  cube2map(&c_pos, &plain_pos);
   cube_round(&c_pos);
   cube2map(&c_pos, &m_pos);
   map_to_offset(&m_pos, &m_pos);
-  text_printf(0, 0, "%0.2f %0.2f", m_pos.x, m_pos.y);
+  map_to_offset(&plain_pos, &plain_pos_off);
+  offset_map2screen(&m_pos, &s_pos2);
+  text_printf(0, 0, "%0.0f %0.0f %i %i", m_pos.x, m_pos.y, s_pos2.x - s_pos.x, s_pos2.y - s_pos.y);
   draw_map_tile(x, y, w, h, &m_pos, 1);
 
 }

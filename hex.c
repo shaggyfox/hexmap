@@ -24,6 +24,14 @@ void cube_round(struct cube_pos *c_pos)
   c_pos->z = rz;
 }
 
+void map_round(struct map_pos *m_pos)
+{
+  struct cube_pos c_pos;
+  map2cube(m_pos, &c_pos);
+  cube_round(&c_pos);
+  cube2map(&c_pos, m_pos);
+}
+
 void map_to_offset(struct map_pos *m_pos, struct map_pos *o_pos)
 {
   o_pos->x = m_pos->x + floorf(m_pos->y / 2);
