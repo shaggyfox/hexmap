@@ -24,14 +24,16 @@ void cube_round(struct cube_pos *c_pos)
   c_pos->z = rz;
 }
 
-void map_to_offset(struct map_pos *m_pos)
+void map_to_offset(struct map_pos *m_pos, struct map_pos *o_pos)
 {
-  m_pos->x += floorf(m_pos->y / 2);
+  o_pos->x = m_pos->x + floorf(m_pos->y / 2);
+  o_pos->y = m_pos->y;
 }
 
-void map_from_offset(struct map_pos *m_pos)
+void map_from_offset(struct map_pos *m_pos, struct map_pos *o_pos)
 {
-  m_pos->x -= floorf(m_pos->y / 2);
+  m_pos->y = o_pos->y;
+  m_pos->x = o_pos->x - floorf(o_pos->y / 2);
 }
 
 void cube2screen(struct cube_pos* c_pos, struct screen_pos *s_pos)

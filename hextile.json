@@ -1,7 +1,16 @@
 { "frames": [
    {
-    "filename": "hextile.aseprite",
+    "filename": "hextile 0.aseprite",
     "frame": { "x": 0, "y": 0, "w": 12, "h": 8 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 8 },
+    "sourceSize": { "w": 12, "h": 8 },
+    "duration": 100
+   },
+   {
+    "filename": "hextile 1.aseprite",
+    "frame": { "x": 12, "y": 0, "w": 12, "h": 8 },
     "rotated": false,
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 8 },
@@ -12,9 +21,9 @@
  "meta": {
   "app": "http://www.aseprite.org/",
   "version": "1.2.4",
-  "image": "../hextile.png",
+  "image": "hextile.png",
   "format": "RGBA8888",
-  "size": { "w": 16, "h": 8 },
+  "size": { "w": 32, "h": 8 },
   "scale": "1",
   "frameTags": [
    { "name": "tile", "from": 0, "to": 0, "direction": "forward" }
