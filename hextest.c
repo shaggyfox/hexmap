@@ -43,13 +43,18 @@ static void update(void *data, float delta)
 
 static void motion(int x, int y, void *data)
 {
-  struct screen_pos mouse_motion_pos = {x, y};
+  struct screen_pos xx_pos;
   if (!mouse_is_down) {
     return;
   }
+  struct screen_pos mouse_motion_pos = {x, y};
   mouse_motion_pos.x -= mouse_pos.x;
   mouse_motion_pos.y -= mouse_pos.y;
   screen2map(&mouse_motion_pos, &new_center_pos);
+  map2screen(&new_center_pos, &xx_pos);
+  printf("(%d %d) (%d %d)\n", 
+      mouse_motion_pos.x, mouse_motion_pos.y,
+      xx_pos.x, xx_pos.y);
 }
 
 static void mouse_up(int x, int y, int button, void *data)
@@ -147,9 +152,8 @@ static void draw(void *data)
   struct screen_pos pos;
   struct screen_pos round_pos;
   map2screen(&new_center_pos, &pos);
-  map_round(&new_center_pos);
-  map2screen(&new_center_pos, &round_pos);
   draw_frame(pos.x +SCREEN_WIDTH / 2,  pos.y + SCREEN_HEIGHT / 2, tileset_get_frame_by_id(glob_tiles, 0));
+  printf("%d %d\n", pos.x, pos.y);
 
 
   //draw_map_test(0,0,SCREEN_WIDTH, SCREEN_HEIGHT, &center_pos);
