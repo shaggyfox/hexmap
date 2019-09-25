@@ -4,6 +4,7 @@
 
 int mouse_is_down = 0;
 struct map_pos center_pos = {0,0};
+struct map_pos new_center_pos;
 struct screen_pos mouse_pos = {0,0};
 struct tileset *glob_tiles = NULL;
 
@@ -22,6 +23,20 @@ void screen2offset_map(struct screen_pos *s_pos, struct map_pos *m_pos)
   map_to_offset(m_pos, m_pos);
 }
 
+void screen2map(struct screen_pos *s_pos, struct map_pos *m_pos)
+{
+  struct cube_pos c_pos;
+  screen2cube(s_pos, &c_pos);
+  cube2map(&c_pos, m_pos);
+}
+
+void map2screen(struct map_pos *m_pos, struct screen_pos *s_pos)
+{
+  struct cube_pos c_pos;
+  map2cube(m_pos, &c_pos);
+  cube2screen(&c_pos, s_pos);
+}
+
 static void update(void *data, float delta)
 {
 }
@@ -29,19 +44,12 @@ static void update(void *data, float delta)
 static void motion(int x, int y, void *data)
 {
   struct screen_pos mouse_motion_pos = {x, y};
-  struct map_pos new_center_pos;
   if (!mouse_is_down) {
     return;
   }
   mouse_motion_pos.x -= mouse_pos.x;
   mouse_motion_pos.y -= mouse_pos.y;
-  screen2offset_map(&mouse_motion_pos, &new_center_pos);
-  center_pos.x += new_center_pos.x;
-  center_pos.y += new_center_pos.y;
-
-  mouse_pos.x = x;
-  mouse_pos.y = y;
-
+  screen2map(&mouse_motion_pos, &new_center_pos);
 }
 
 static void mouse_up(int x, int y, int button, void *data)
@@ -65,6 +73,13 @@ static void offset_map2screen(struct map_pos *map, struct screen_pos *screen)
   cube2screen(&cube, screen);
 }
 
+static void offset_map_round(struct map_pos *map)
+{
+  map_from_offset(map, map);
+  map_round(map);
+  map_to_offset(map, map);
+}
+
 static void draw_map_tile(int x, int y, int w, int h, struct map_pos *pos, int id)
 {
   int center_x = (w - WIDTH) / 2;
@@ -76,19 +91,25 @@ static void draw_map_tile(int x, int y, int w, int h, struct map_pos *pos, int i
 
 static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
 {
+#if 0
   /* find center of the screen */
   int center_x = (w - WIDTH) / 2;
   int center_y = (h - HEIGHT) / 2;
 
   struct map_pos pos;
+  struct map_pos pos_round;
   struct screen_pos screen;
   offset_map2screen(&pos, &screen);
-  for (pos.y = -5 + center->y; pos.y < 5 + center->y; ++pos.y) {
-    for (pos.x = -5 + center->x; pos.x < 5 + center->x; ++pos.x) {
+  pos_round.x = pos.x;
+  pos_round.y = pos.y;
+
+  for (pos.y = -5; pos.y < 5; ++pos.y) {
+    for (pos.x = -5; pos.x < 5; ++pos.x) {
       offset_map2screen(&pos, &screen);
       draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, 0));
     }
   }
+#endif
 }
 #if 0
 void draw_map_test_mouse(int x, int y, int w, int h)
@@ -121,7 +142,17 @@ static void draw(void *data)
 {
   draw_color(0,0,0,255);
   clear_screen();
-  draw_map_test(0,0,SCREEN_WIDTH, SCREEN_HEIGHT, &center_pos);
+
+
+  struct screen_pos pos;
+  struct screen_pos round_pos;
+  map2screen(&new_center_pos, &pos);
+  map_round(&new_center_pos);
+  map2screen(&new_center_pos, &round_pos);
+  draw_frame(pos.x +SCREEN_WIDTH / 2,  pos.y + SCREEN_HEIGHT / 2, tileset_get_frame_by_id(glob_tiles, 0));
+
+
+  //draw_map_test(0,0,SCREEN_WIDTH, SCREEN_HEIGHT, &center_pos);
   //draw_map_test_mouse(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 #if 0
   struct screen_pos s_pos;
