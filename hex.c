@@ -38,7 +38,7 @@ void map_to_offset(struct map_pos *m_pos, struct map_pos *o_pos)
   o_pos->y = m_pos->y;
 }
 
-void map_from_offset(struct map_pos *m_pos, struct map_pos *o_pos)
+void offset_to_map(struct map_pos *o_pos, struct map_pos *m_pos)
 {
   m_pos->y = o_pos->y;
   m_pos->x = o_pos->x - floorf(o_pos->y / 2);

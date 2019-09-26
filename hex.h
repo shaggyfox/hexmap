@@ -20,7 +20,7 @@ struct cube_pos {
 #define HEIGHT 8.0f
 
 void map_to_offset(struct map_pos *m_pos, struct map_pos *o_pos);
-void map_from_offset(struct map_pos *o_pos, struct map_pos *m_pos);
+void offset_to_map(struct map_pos *o_pos, struct map_pos *m_pos);
 void cube_round(struct cube_pos *c_pos);
 void map_round(struct map_pos *m_pos);
 void cube2screen(struct cube_pos* c_pos, struct screen_pos *s_pos);
