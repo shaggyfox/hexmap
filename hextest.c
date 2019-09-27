@@ -111,7 +111,14 @@ void mmap_init(struct mmap *map, int w, int h, int v)
 
 void mmap_set(struct mmap* map, int x, int y, int v)
 {
-  map->data[y * map->w + x] = v;
+  x -= y / 2;
+  if (x < 0) {
+    x += map->w;
+  }
+  if (y < 0) {
+    y += map->h;
+  }
+  map->data[(y%map->h) * map->w + (x%map->w)] = v;
 }
 
 int mmap_get(struct mmap* map, int x, int y)
@@ -134,6 +141,8 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   if (!glob_map.w) {
     mmap_init(&glob_map, 10, 10, 0);
     mmap_set(&glob_map, 0, 0, 1);
+    mmap_set(&glob_map, 0, 1, 1);
+    mmap_set(&glob_map, 0, 2, 1);
   }
 
   struct map_pos pos;
@@ -148,12 +157,20 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   center_x += screen.x - round.x;
   center_y += screen.y - round.y;
 
-  map_to_offset(&r_pos, &r_pos);
 
+  int off = 0;
+  int o2 = 0;
   for (pos.y = -5; pos.y < 5; ++pos.y) {
+    ++o2;
+    if (o2 == 2) {
+      o2 = 0;
+      off += 1;
+    }
     for (pos.x = -5; pos.x < 5; ++pos.x) {
-      offset_map2screen(&pos, &screen);
+      pos.x -= off;
+      map2screen(&pos, &screen);
       draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, mmap_get(&glob_map, pos.x - r_pos.x, pos.y - r_pos.y)));
+      pos.x += off;
     }
   }
 }
