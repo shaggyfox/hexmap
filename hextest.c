@@ -111,23 +111,24 @@ void mmap_init(struct mmap *map, int w, int h, int v)
 
 void mmap_set(struct mmap* map, int x, int y, int v)
 {
-  x -= y / 2;
-  if (x < 0) {
-    x += map->w;
-  }
-  if (y < 0) {
+  while (y < 0) {
     y += map->h;
+  }
+  x -= y / 2;
+  while (x < 0) {
+    x += map->w;
   }
   map->data[(y%map->h) * map->w + (x%map->w)] = v;
 }
 
 int mmap_get(struct mmap* map, int x, int y)
 {
-  while (x < 0) {
-    x += map->w;
-  }
   while (y < 0) {
     y += map->h;
+    x -= map->w / 2;
+  }
+  while (x < 0) {
+    x += map->w;
   }
   return map->data[map->w * (y % map->h) + (x % map->w)];
 }
@@ -139,10 +140,24 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   int center_y = (h - HEIGHT) / 2;
   static struct mmap glob_map = {0};
   if (!glob_map.w) {
-    mmap_init(&glob_map, 10, 10, 0);
+    mmap_init(&glob_map, 12, 20, 0);
     mmap_set(&glob_map, 0, 0, 1);
     mmap_set(&glob_map, 0, 1, 1);
-    mmap_set(&glob_map, 0, 2, 1);
+    /*mmap_set(&glob_map, 0, 2, 1);/*
+    mmap_set(&glob_map, 0, 3, 1);
+    mmap_set(&glob_map, 0, 4, 1);
+    mmap_set(&glob_map, 0, 5, 1);
+    mmap_set(&glob_map, 0, 6, 1);
+    mmap_set(&glob_map, 0, 7, 1);
+    mmap_set(&glob_map, 0, 8, 1);
+    //mmap_set(&glob_map, 0, 9, 1);
+   /* mmap_set(&glob_map, 0, 10, 1);
+    mmap_set(&glob_map, 0, 11, 1);
+    mmap_set(&glob_map, 0, 12, 1);
+    mmap_set(&glob_map, 0, 13, 1);
+    mmap_set(&glob_map, 0, 14, 1);
+    mmap_set(&glob_map, 0, 15, 1);
+    mmap_set(&glob_map, 0, 16, 1);*/
   }
 
   struct map_pos pos;
@@ -156,17 +171,19 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
 
   center_x += screen.x - round.x;
   center_y += screen.y - round.y;
-
+  int W = 14;
+  int H = 20;
+  int o = roundf(H/4.0);
 
   int off = 0;
   int o2 = 0;
-  for (pos.y = -5; pos.y < 5; ++pos.y) {
+  for (pos.y = -H/2; pos.y < H/2; ++pos.y) {
     ++o2;
     if (o2 == 2) {
       o2 = 0;
       off += 1;
     }
-    for (pos.x = -5; pos.x < 5; ++pos.x) {
+    for (pos.x = -W/2 + o; pos.x < W/2 + o; ++pos.x) {
       pos.x -= off;
       map2screen(&pos, &screen);
       draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, mmap_get(&glob_map, pos.x - r_pos.x, pos.y - r_pos.y)));
