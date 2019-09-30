@@ -125,12 +125,16 @@ int mmap_get(struct mmap* map, int x, int y)
 {
   while (y < 0) {
     y += map->h;
-    x -= map->w / 2;
+    x -= map->h / 2;
+  }
+  while (y >= map->h) {
+    y -= map->h;
+    x += map->h/ 2;
   }
   while (x < 0) {
     x += map->w;
   }
-  return map->data[map->w * (y % map->h) + (x % map->w)];
+  return map->data[map->w * y + (x % map->w)];
 }
 
 static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
@@ -140,24 +144,9 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   int center_y = (h - HEIGHT) / 2;
   static struct mmap glob_map = {0};
   if (!glob_map.w) {
-    mmap_init(&glob_map, 12, 20, 0);
+    mmap_init(&glob_map, 14, 20, 0);
     mmap_set(&glob_map, 0, 0, 1);
     mmap_set(&glob_map, 0, 1, 1);
-    /*mmap_set(&glob_map, 0, 2, 1);/*
-    mmap_set(&glob_map, 0, 3, 1);
-    mmap_set(&glob_map, 0, 4, 1);
-    mmap_set(&glob_map, 0, 5, 1);
-    mmap_set(&glob_map, 0, 6, 1);
-    mmap_set(&glob_map, 0, 7, 1);
-    mmap_set(&glob_map, 0, 8, 1);
-    //mmap_set(&glob_map, 0, 9, 1);
-   /* mmap_set(&glob_map, 0, 10, 1);
-    mmap_set(&glob_map, 0, 11, 1);
-    mmap_set(&glob_map, 0, 12, 1);
-    mmap_set(&glob_map, 0, 13, 1);
-    mmap_set(&glob_map, 0, 14, 1);
-    mmap_set(&glob_map, 0, 15, 1);
-    mmap_set(&glob_map, 0, 16, 1);*/
   }
 
   struct map_pos pos;
