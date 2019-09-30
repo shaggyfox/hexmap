@@ -123,6 +123,13 @@ void mmap_set(struct mmap* map, int x, int y, int v)
 
 int mmap_get(struct mmap* map, int x, int y)
 {
+  return map->data[map->w * y + (x % map->w)];
+}
+
+static void map_normalize_coordinates(struct mmap* map, int *x_par, int *y_par)
+{
+  int x = *x_par;
+  int y = *y_par;
   while (y < 0) {
     y += map->h;
     x -= map->h / 2;
@@ -134,17 +141,21 @@ int mmap_get(struct mmap* map, int x, int y)
   while (x < 0) {
     x += map->w;
   }
-  return map->data[map->w * y + (x % map->w)];
+  x %= map->w;
+  *x_par = x;
+  *y_par = y;
 }
 
 static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
 {
   /* find center of the screen */
+  int clip_center_x = w / 2;
+  int clip_center_y = h / 2;
   int center_x = (w - WIDTH) / 2;
   int center_y = (h - HEIGHT) / 2;
   static struct mmap glob_map = {0};
   if (!glob_map.w) {
-    mmap_init(&glob_map, 14, 20, 0);
+    mmap_init(&glob_map, 10, 10, 0);
     mmap_set(&glob_map, 0, 0, 1);
     mmap_set(&glob_map, 0, 1, 1);
   }
@@ -158,14 +169,19 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   map2screen(&r_pos, &round);
   map2screen(center, &screen);
 
+  draw_clip_rect4(x + clip_center_x - w / 2, y + clip_center_y - h/2, w, h);
+
   center_x += screen.x - round.x;
   center_y += screen.y - round.y;
-  int W = 14;
-  int H = 20;
+  int W = w / WIDTH * 1.5;
+  int H = h / HEIGHT * 1.5;
   int o = roundf(H/4.0);
 
   int off = 0;
   int o2 = 0;
+
+
+
   for (pos.y = -H/2; pos.y < H/2; ++pos.y) {
     ++o2;
     if (o2 == 2) {
@@ -175,10 +191,15 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
     for (pos.x = -W/2 + o; pos.x < W/2 + o; ++pos.x) {
       pos.x -= off;
       map2screen(&pos, &screen);
-      draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, mmap_get(&glob_map, pos.x - r_pos.x, pos.y - r_pos.y)));
+      int map_x = pos.x - r_pos.x;
+      int map_y = pos.y - r_pos.y;
+      map_normalize_coordinates(&glob_map, &map_x, &map_y);
+      int tile = mmap_get(&glob_map, map_x, map_y);
+      draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, tile));
       pos.x += off;
     }
   }
+  draw_clip_null();
 }
 #if 0
 void draw_map_test_mouse(int x, int y, int w, int h)
@@ -255,9 +276,9 @@ static void key_up(int key, void *data)
 }
 
 static struct game_ctx ctx = {
-  .screen_width = 32*4,
-  .screen_height = 24*4,
-  .screen_scale = 8,
+  .screen_width = 200,
+  .screen_height = 150,
+  .screen_scale = 4,
   .game_init = init,
   .game_update = update,
   .game_draw = draw,
