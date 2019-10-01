@@ -84,13 +84,13 @@ static void offset_map_round(struct map_pos *map)
   map_to_offset(map, map);
 }
 
-static void draw_map_tile(int x, int y, int w, int h, struct map_pos *pos, int id)
+void draw_map_tile(int x, int y, int w, int h, struct map_pos *pos, int id)
 {
   int center_x = (w - WIDTH) / 2;
   int center_y = (h - HEIGHT) / 2;
   struct screen_pos screen;
-  //offset_map2screen(pos, &screen);
-  //draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, id));
+  map2screen(pos, &screen);
+  draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, id));
 }
 
 struct mmap {
@@ -201,7 +201,7 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   }
   draw_clip_null();
 }
-#if 0
+
 void draw_map_test_mouse(int x, int y, int w, int h)
 {
   int center_x = w / 2;
@@ -212,21 +212,16 @@ void draw_map_test_mouse(int x, int y, int w, int h)
   struct map_pos m_pos;
   struct map_pos plain_pos;
   struct map_pos plain_pos_off;
-  s_pos.x = mouse_x - center_x;
-  s_pos.y = mouse_y - center_y;
+  s_pos.x = mouse_pos.x - center_x;
+  s_pos.y = mouse_pos.y - center_y;
 
   screen2cube(&s_pos, &c_pos);
   cube2map(&c_pos, &plain_pos);
   cube_round(&c_pos);
   cube2map(&c_pos, &m_pos);
-  map_to_offset(&m_pos, &m_pos);
-  map_to_offset(&plain_pos, &plain_pos_off);
-  offset_map2screen(&m_pos, &s_pos2);
-  text_printf(0, 0, "%0.0f %0.0f %i %i", m_pos.x, m_pos.y, s_pos2.x - s_pos.x, s_pos2.y - s_pos.y);
   draw_map_tile(x, y, w, h, &m_pos, 1);
 
 }
-#endif
 
 static void draw(void *data)
 {
@@ -245,7 +240,7 @@ static void draw(void *data)
   real_center_pos.y = center_pos.y + scroll_pos.y;
 
   draw_map_test(0,0,SCREEN_WIDTH, SCREEN_HEIGHT, &real_center_pos);
-  //draw_map_test_mouse(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+  draw_map_test_mouse(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 #if 0
   struct screen_pos s_pos;
   struct cube_pos c_pos;
