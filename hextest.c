@@ -151,11 +151,16 @@ static void map_normalize_coordinates(struct mmap* map, int *x_par, int *y_par)
 
 static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
 {
-  /* find center of the screen */
+  /* absolute center of the screen */
   int clip_center_x = w / 2;
   int clip_center_y = h / 2;
+
+  /* print position of center tile */
   int center_x = (w - WIDTH) / 2;
   int center_y = (h - HEIGHT) / 2;
+
+  /* XXX initialize global map ... 
+   * normally this does not belong in here */
   static struct mmap glob_map = {0};
   if (!glob_map.w) {
     mmap_init(&glob_map, 10, 10, 0);
@@ -167,11 +172,13 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   struct map_pos r_pos;
   struct screen_pos round;
   struct screen_pos screen;
+
   r_pos = *center;
   map_round(&r_pos);
   map2screen(&r_pos, &round);
   map2screen(center, &screen);
 
+  /* setup clip rectangle */
   draw_clip_rect4(x + clip_center_x - w / 2, y + clip_center_y - h/2, w, h);
 
   center_x += screen.x - round.x;
@@ -208,7 +215,7 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
       o2 = 0;
       off += 1;
     }
-    for (pos.x = -W/2 + o; pos.x < W/2 + o; ++pos.x) {
+    for (pos.x = -4; pos.x < W; ++pos.x) {
       /* align x offset */
       pos.x -= off;
 
