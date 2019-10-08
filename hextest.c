@@ -6,6 +6,7 @@ int mouse_is_down = 0;
 struct map_pos center_pos = {0,0};
 struct map_pos scroll_pos;
 struct screen_pos mouse_pos = {0,0};
+struct screen_pos current_mouse_pos = {0,0};
 struct tileset *glob_tiles = NULL;
 
 static void init(void **data)
@@ -43,6 +44,8 @@ static void update(void *data, float delta)
 
 static void motion(int x, int y, void *data)
 {
+  current_mouse_pos.x = x;
+  current_mouse_pos.y = y;
   if (!mouse_is_down) {
     return;
   }
@@ -181,6 +184,23 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   int o2 = 0;
 
 
+  struct screen_pos local_mouse_pos = current_mouse_pos;
+  local_mouse_pos.x -= clip_center_x;
+  local_mouse_pos.y -= clip_center_y;
+  local_mouse_pos.x -= screen.x - round.x;
+  local_mouse_pos.y -= screen.y - round.y;
+  struct cube_pos mouse_c_pos;
+  screen2cube(&local_mouse_pos, &mouse_c_pos);
+  cube_round(&mouse_c_pos);
+  struct map_pos mouse_map_pos;
+  cube2map(&mouse_c_pos, &mouse_map_pos);
+  mouse_map_pos.x -= r_pos.x;
+  mouse_map_pos.y -= r_pos.y;
+  int mouse_map_x = mouse_map_pos.x;
+  int mouse_map_y = mouse_map_pos.y;
+
+  map_normalize_coordinates(&glob_map, &mouse_map_x, &mouse_map_y);
+  printf("mouse_map= %f, %f\n", mouse_map_pos.x, mouse_map_pos.y);
 
   for (pos.y = -H/2; pos.y < H/2; ++pos.y) {
     ++o2;
@@ -189,16 +209,25 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
       off += 1;
     }
     for (pos.x = -W/2 + o; pos.x < W/2 + o; ++pos.x) {
+      /* align x offset */
       pos.x -= off;
+
       map2screen(&pos, &screen);
       int map_x = pos.x - r_pos.x;
       int map_y = pos.y - r_pos.y;
       map_normalize_coordinates(&glob_map, &map_x, &map_y);
       int tile = mmap_get(&glob_map, map_x, map_y);
       draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, tile));
+
+      if (map_x == mouse_map_x && map_y == mouse_map_y) {
+        draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, 2));
+      }
+
+      /* reset x offset for for - loop */
       pos.x += off;
     }
   }
+
   draw_clip_null();
 }
 
@@ -240,7 +269,7 @@ static void draw(void *data)
   real_center_pos.y = center_pos.y + scroll_pos.y;
 
   draw_map_test(0,0,SCREEN_WIDTH, SCREEN_HEIGHT, &real_center_pos);
-  draw_map_test_mouse(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+  //draw_map_test_mouse(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 #if 0
   struct screen_pos s_pos;
   struct cube_pos c_pos;
