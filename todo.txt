@@ -1,0 +1,29 @@
+Hexmap usage stuff
+==================
+
+struct hexpmap_widget {
+  struct hexmap_widgets* next;
+
+  struct map *map;
+  struct screen_pos *mouse_scroll_start_pos;
+  struct map_pos *center;
+  int width;
+  int height;
+  int x;
+  int y;
+  int flags; /* e.g: SCROLLABLE ... */
+};
+
+struct widget_list {
+  struct widget_list *next;
+  struct hexmap_widget;
+}
+
+struct global_maps {
+  struct widget_list *widgets;
+  struct hexmap_widget *active_widget;
+};
+
+* add handler for mouse_button() and mouse_move()
+* add draw_hexmap() function
+

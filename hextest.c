@@ -136,14 +136,15 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   }
   /* XXX */
 
-  struct map_pos pos;
-  struct map_pos r_pos;
-  struct screen_pos round;
-  struct screen_pos screen;
 
+  struct map_pos r_pos;
   r_pos = *center;
   map_round(&r_pos);
+
+  struct screen_pos round;
   map2screen(&r_pos, &round);
+
+  struct screen_pos screen;
   map2screen(center, &screen);
 
 
@@ -184,6 +185,8 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
 
   map_normalize_coordinates(&glob_map, &mouse_map_x, &mouse_map_y);
 
+
+  struct map_pos pos;
   for (pos.y = -H/2; pos.y < H/2; ++pos.y) {
     ++o2;
     off = o2 / 2;
