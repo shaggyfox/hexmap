@@ -158,17 +158,15 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   center_y += soft_scroll_screen_offset_y;
 
 
-  /* vvv XXX this needs some fixes XXX vvv */
-  int W = w / WIDTH * 1.5;
-  int H = h / HEIGHT * 1.5;
-  /* ^^^ XXX this needs some fixes XXX ^^^ */
+  int W = ceilf(w / (float)WIDTH) + 2;
+  int H = ceilf(h / (HEIGHT * 0.75)) + 2;
 
   int off = 0;
   int o2 = 0;
 
   struct screen_pos local_mouse_pos = current_mouse_pos;
-  local_mouse_pos.x -= clip_center_x + soft_scroll_screen_offset_x;
-  local_mouse_pos.y -= clip_center_y + soft_scroll_screen_offset_y;
+  local_mouse_pos.x -= x + clip_center_x + soft_scroll_screen_offset_x;
+  local_mouse_pos.y -= y + clip_center_y + soft_scroll_screen_offset_y;
 
   struct cube_pos mouse_c_pos;
   screen2cube(&local_mouse_pos, &mouse_c_pos);
@@ -186,11 +184,12 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   map_normalize_coordinates(&glob_map, &mouse_map_x, &mouse_map_y);
 
 
+  int offset = ceilf(H/4.0);
   struct map_pos pos;
-  for (pos.y = -H/2; pos.y < H/2; ++pos.y) {
+  for (pos.y = -(ceilf(H/2.0)); pos.y < ceilf(H/2.0); ++pos.y) {
     ++o2;
     off = o2 / 2;
-    for (pos.x = -4; pos.x < W; ++pos.x) {
+    for (pos.x = -(ceilf(W/2.0)) + offset; pos.x < ceilf(W/2.0)+offset ; ++pos.x) {
       /* align x offset */
       pos.x -= off;
 
@@ -210,6 +209,7 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
     }
   }
 
+  draw_color(255,255,255,255);
   draw_clip_null();
 }
 
@@ -223,7 +223,7 @@ static void draw(void *data)
   real_center_pos.x = center_pos.x + scroll_pos.x;
   real_center_pos.y = center_pos.y + scroll_pos.y;
 
-  draw_map_test(0,0,SCREEN_WIDTH, SCREEN_HEIGHT, &real_center_pos);
+ draw_map_test(0,0,SCREEN_WIDTH,SCREEN_HEIGHT, &real_center_pos);
 }
 
 static void key_up(int key, void *data)
