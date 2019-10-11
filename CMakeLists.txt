@@ -18,4 +18,8 @@ add_executable(hextest hextest.c hex.c hex.h ${CMAKE_CURRENT_BINARY_DIR}/hextile
 target_link_libraries(hextest engine)
 target_compile_options(hextest PUBLIC ${ENGINE_CFLAGS})
 
+add_executable(windows windows.c)
+target_link_libraries(windows engine)
+target_compile_options(windows PUBLIC ${ENGINE_CFLAGS})
+
 
