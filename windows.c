@@ -1,50 +1,191 @@
 #include "engine.h"
 
-struct widget {
-  void (*get_dimensions)(void *data, int *w, int *h, int *min_w, int *min_h);
+enum object_type_e {OBJECT_T_WINDOW, OBJECT_T_WIDGET, OBJECT_T_LAYOUT};
+
+struct win_object {
+  enum object_type_e type;
+  void (*get_dimensions)(void *data, int *w, int *h);
   void (*set_dimensions)(void *data, int w, int h);
+  void (*set_position)(void *data, int x, int y);
+  void (*get_position)(void *data, int *x, int *y);
+  void (*draw)(void *data, int x, int y);
+  SDL_Rect rect;
 };
+
+static void object_set_dimensions_cb(void *object, int w, int h)
+{
+  struct win_object *ctx = object;
+  ctx->rect.w = w;
+  ctx->rect.h = h;
+}
+
+static void object_set_position_cb(void *object, int x, int y)
+{
+  struct win_object *ctx = object;
+  ctx->rect.x = x;
+  ctx->rect.y = y;
+}
+
+static void object_get_position_cb(void *object, int *x, int *y)
+{
+  struct win_object *ctx = object;
+  *x = ctx->rect.x;
+  *y = ctx->rect.y;
+}
+
+static void object_get_dimensions_cb(void *object, int *w, int *h)
+{
+  struct win_object *ctx = object;
+  *w = ctx->rect.w;
+  *h = ctx->rect.h;
+}
+
+void *object_new(enum object_type_e type, int size)
+{
+  struct win_object *ret = calloc(1, size);
+  ret->type = type;
+  ret->set_dimensions = object_set_dimensions_cb;
+  ret->get_dimensions = object_get_dimensions_cb;
+  ret->set_position = object_set_position_cb;
+  ret->get_position = object_get_position_cb;
+  return ret;
+}
+
+void object_get_dimensions(void *object, int *w, int *h)
+{
+  struct win_object *ctx = object;
+  ctx->get_dimensions(object, w, h);
+}
+
+void object_set_dimensions(void *object, int w, int h)
+{
+  struct win_object *ctx = object;
+  ctx->set_dimensions(object, w, h);
+}
+
+void object_set_position(void *object, int w, int h)
+{
+  struct win_object *ctx = object;
+  ctx->set_position(object, w, h);
+}
+
+void object_get_position(void *object, int *w, int *h)
+{
+  struct win_object *ctx = object;
+  ctx->get_position(object, w, h);
+}
+
+void object_draw(void *object, int x, int y)
+{
+  struct win_object *ctx = object;
+  ctx->draw(object, x, y);
+}
+
+
+struct widget {
+  struct win_object object;
+};
+
+/* label widget */
+struct widget_label {
+  struct widget widget;
+  char *text;
+  int font;
+};
+
+void label_get_dimensions(void *object, int *w, int *h)
+{
+  struct widget_label *ctx = object;
+  SDL_Rect rect;
+  text_dimensions(ctx->text, &rect);
+  *w = rect.w;
+  *h = rect.h;
+}
+
+struct widget_label *new_label(char *text, int font)
+{
+  struct widget_label *ret = object_new(OBJECT_T_WIDGET, sizeof(*ret));
+  ret->text = strdup(text);
+  ret->font = FONT_DEFAULT;
+  return ret;
+}
 
 struct layout_widget_list {
   struct widget_list *next;
   struct widget *widget;
 };
 
-#define LAYOUT_VBOX 1
-#define LAYOUT_HBOX 2
+enum layout_type_e {LAYOUT_T_HBOX, LAYOUT_T_VBOX, LAYOUT_T_TABLE};
 struct layout {
-  int type;
-  int spacing;
-  struct layout_widget_list *widgets;
-  /* union with additional parameter */
+  struct win_object object;
+  struct object *objects;
+  int object_count;
+  void (*add)(struct layout*, void *object, const char *flags);
+};
+
+void layout_add(struct layout *layout, void *object, const char *flags)
+{
+  layout->add(layout, object, flags);
+}
+
+void vbox_set_dimensions(void *object, int w, int h)
+{
+  //struct layout *ctx = object;
+  object_set_dimensions_cb(object, w, h);
+  /* calculate the average size */
+  /* to do this 
+   *  1 find all objects that have the shrink-flag
+   *  2 get the minimum size from all shrinked objects
+   *  3 decrease <width> by the sum of the size of all shrinked objects
+   *    and mark object as 'done'
+   *  4 divide <with> by the number of expanded-flagged objects
+   *    to get the average size
+   *  5 get minimum with for each expanded-flagged object
+   *    if the minimum size exceeds the average size
+   *      decrease it's minimum size from <width>, mark object as 'done' then
+   *      set new_average to  <with> divided by the count of remaining
+   *      expanded-flagged objects
+   *      if this is the last object
+   *        increase <width> to match content <width>
+   *  6 set all remaining (not 'done') objects to the average-size */
+}
+
+struct layout *new_vbox(void)
+{
+  struct layout *ret = calloc(1, sizeof(*ret));
+  ret->object.type = OBJECT_T_LAYOUT;
+  ret->object.set_dimensions = vbox_set_dimensions;
+  ret->add = layout_add;
+  return ret;
 };
 
 struct window {
-  int x;
-  int y;
-  int width;
-  int height;
+  struct win_object object;
+  struct layout *layout;
 };
 
-
-void window_get_dimensions(struct window* win, int *w, int *h);
-void widget_set_dimensions(struct widget* wgt, int w, int h);
-void widget_get_dimensions(struct widget* wgt, int *w, int *h, int *minw, int *minh);
-
-void window_set_dimensions(struct window* win, int w, int h) {
-  win->width = w;
-  win->height = h;
+static void window_set_dimensions_cb(void* object, int w, int h) {
+  struct window *ctx = object;
+  /* call parent function */
+  object_set_dimensions_cb(object, w, h);
+  if (ctx->layout) {
+    object_set_dimensions(ctx->layout, w, h);
+  }
 }
-void window_set_position(struct window *win, int x, int y)
+
+void window_draw(void *data, int x, int y)
 {
-  win->x = x;
-  win->y = y;
-}
-void widget_draw(struct widget *wgt, int x, int y);
-void window_draw(struct window *win)
-{
+  struct window *win = data;
   draw_color(255,255,255,255);
-  draw_rect4(win->x,win->y,win->width,win->height);
+  draw_rect(&win->object.rect);
+}
+
+struct window *window_new(int w, int h)
+{
+  struct window *ret = object_new(OBJECT_T_WINDOW, sizeof(*ret));
+  ret->object.draw = window_draw;
+  ret->object.set_dimensions = window_set_dimensions_cb;
+  return ret;
 }
 
 static void init(void **data)
@@ -58,12 +199,15 @@ static void update(void *data, float delta)
 
 static void draw(void *data)
 {
-  struct window test_win;
-  window_set_dimensions(&test_win, 100, 100);
-  window_set_position(&test_win, 10, 10);
+  static struct window *test_win = NULL;
+  if (!test_win) {
+    test_win = window_new(50, 50);
+    object_set_dimensions(test_win, 100, 100);
+    object_set_position(test_win, 10, 10);
+  }
   draw_color(0,0,0,0);
   clear_screen();
-  window_draw(&test_win);
+  object_draw(test_win, 10, 10);
 }
 
 static struct game_ctx ctx = {
