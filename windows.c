@@ -147,25 +147,62 @@ void layout_add(struct layout *layout, void *object, const char *flags)
 
 void vbox_set_dimensions(void *object, int w, int h)
 {
-  //struct layout *ctx = object;
+  struct layout *ctx = object;
   /* call parent */
   object_set_dimensions_cb(object, w, h);
   /* calculate the average size */
-  /* to do this 
-   *  1 find all objects that have the shrink-flag
-   *  2 get the minimum size from all shrinked objects
-   *  3 decrease <width> by the sum of the size of all shrinked objects
-   *    and mark object as 'done'
-   *  4 divide <with> by the number of expanded-flagged objects
-   *    to get the average size
-   *  5 get minimum with for each expanded-flagged object
-   *    if the minimum size exceeds the average size
-   *      decrease it's minimum size from <width>, mark object as 'done' then
-   *      set new_average to  <with> divided by the count of remaining
-   *      expanded-flagged objects
-   *      if this is the last object
-   *        increase <width> to match content <width>
-   *  6 set all remaining (not 'done') objects to the average-size */
+  /* to do this */
+  int tmp_w, tmp_h;
+  int height_left = h;
+  int expand_cnt = 0;
+  for (int i = 0; i < ctx->count; ++i) {
+    /* reset done flag */
+    ctx->entries[i].flags &= ~DONE;
+    object_set_dimensions(ctx->entries[i].object, w, 0); /* forces minimum height in get_dimensions */
+    // 1 find all objects missing the EXPAND flag
+    if (!(ctx->entries[i].flags & EXPAND)) {
+      // 2 get the minimum size from all shrinked objects
+      object_get_dimensions(ctx->entries[i].object, &tmp_w, &tmp_h);
+      // 3 decrease <width> by the sum of the size of all shrinked objects
+      height_left -= tmp_h;
+      // ... and mark object as 'done'
+      ctx->entries[i].flags |= DONE;
+    } else {
+      expand_cnt += 1;
+    }
+  }
+  int repeat;
+  int common_height;
+  do {
+    repeat = 0;
+    // 4 divide <height> by the number of expanded-flagged objects
+    // to get the common size
+    common_height = height_left / expand_cnt;
+    for (int i = 0; i < ctx->count; ++i) {
+      // 5 get minimum <height> for each expanded-flagged object
+      if (ctx->entries[i].flags & EXPAND && !(ctx->entries[i].flags & DONE)) {
+        // if the minimum size exceeds the average size
+        object_get_dimensions(ctx->entries[i].object, &tmp_w, &tmp_h);
+        if (common_height < tmp_h) {
+          // decrease it's minimum size from <width>, mark object as 'done' then
+          // set new_average to  <with> divided by the count of remaining
+          // expanded-flagged objects
+          height_left -= tmp_h;
+          expand_cnt -= 1;
+          repeat = 1;
+          ctx->entries[i].flags |= DONE;
+          break;
+        }
+      }
+    }
+  } while (repeat);
+
+  // 6 set all remaining (not 'done') objects to the average-size
+  for (int i = 0; i < ctx->count; ++i) {
+    if (!(ctx->entries[i].flags & DONE)) {
+      object_set_dimensions(ctx->entries[i].object, w, common_height);
+    }
+  }
 }
 
 void box_set_dimensions(void *object, enum layout_type_e type, int w, int h)
