@@ -102,9 +102,17 @@ void label_get_dimensions(void *object, int *w, int *h)
   *h = rect.h;
 }
 
-struct widget_label *new_label(char *text, int font)
+void label_draw(void *object, int x, int y)
+{
+  struct widget_label *ctx = object;
+  draw_text(x, y, ctx->text);
+}
+
+struct widget_label *label_new(char *text)
 {
   struct widget_label *ret = object_new(OBJECT_T_WIDGET, sizeof(*ret));
+  ret->widget.object.draw = label_draw;
+  ret->widget.object.get_dimensions = label_get_dimensions;
   ret->text = strdup(text);
   ret->font = FONT_DEFAULT;
   return ret;
@@ -118,6 +126,8 @@ struct layout_widget_entry
 {
   int flags;
   void *object;
+  int width;
+  int height;
 };
 
 enum layout_type_e {LAYOUT_T_HBOX, LAYOUT_T_VBOX, LAYOUT_T_TABLE};
@@ -144,6 +154,21 @@ void layout_add(struct layout *layout, void *object, const char *flags)
 {
   layout->add(layout, object, flags);
 }
+void vbox_draw(void *object, int x, int y)
+{
+  struct layout *ctx = object;
+  draw_color(255,0,0,255);
+  int tmp_w, tmp_h;
+  object_get_dimensions(object, &tmp_w, &tmp_h);
+  draw_rect4(x, y, tmp_w, tmp_h);
+  for (int i = 0; i < ctx->count; ++i) {
+    object_get_dimensions(ctx->entries[i].object, &tmp_w, &tmp_h);
+    int draw_x = x + (ctx->entries[i].width - tmp_w) / 2;
+    int draw_y = y + (ctx->entries[i].height - tmp_h) / 2;
+    object_draw(ctx->entries[i].object, draw_x, draw_y);
+    y += ctx->entries[i].height;
+  }
+}
 
 void vbox_set_dimensions(void *object, int w, int h)
 {
@@ -167,6 +192,8 @@ void vbox_set_dimensions(void *object, int w, int h)
       height_left -= tmp_h;
       // ... and mark object as 'done'
       ctx->entries[i].flags |= DONE;
+      ctx->entries[i].width = w;
+      ctx->entries[i].height = tmp_h;
     } else {
       expand_cnt += 1;
     }
@@ -191,6 +218,8 @@ void vbox_set_dimensions(void *object, int w, int h)
           expand_cnt -= 1;
           repeat = 1;
           ctx->entries[i].flags |= DONE;
+          ctx->entries[i].width = w;
+          ctx->entries[i].height = tmp_h;
           break;
         }
       }
@@ -201,6 +230,8 @@ void vbox_set_dimensions(void *object, int w, int h)
   for (int i = 0; i < ctx->count; ++i) {
     if (!(ctx->entries[i].flags & DONE)) {
       object_set_dimensions(ctx->entries[i].object, w, common_height);
+      ctx->entries[i].width = w;
+      ctx->entries[i].height = common_height;
     }
   }
 }
@@ -213,10 +244,11 @@ void hbox_set_dimensions(void *object, int w, int h)
 {
 }
 
-struct layout *new_vbox(void)
+struct layout *vbox_new(void)
 {
   struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
   ret->object.set_dimensions = vbox_set_dimensions;
+  ret->object.draw = vbox_draw;
   ret->add = layout_add_cb;
   return ret;
 };
@@ -236,6 +268,11 @@ struct window {
   struct layout *layout;
 };
 
+void window_set_layout(struct window *window, struct layout *layout)
+{
+  window->layout = layout;
+}
+
 static void window_set_dimensions_cb(void* object, int w, int h) {
   struct window *ctx = object;
   /* call parent function */
@@ -250,6 +287,9 @@ void window_draw(void *data, int x, int y)
   struct window *win = data;
   draw_color(255,255,255,255);
   draw_rect(&win->object.rect);
+  if (win->layout) {
+    object_draw(win->layout, x, y);
+  }
 }
 
 struct window *window_new(int w, int h)
@@ -272,8 +312,17 @@ static void update(void *data, float delta)
 static void draw(void *data)
 {
   static struct window *test_win = NULL;
+  static void *label;
+  static void *label2;
+  static struct layout *layout;
   if (!test_win) {
     test_win = window_new(50, 50);
+    layout = vbox_new();
+    window_set_layout(test_win, layout);
+    label = label_new("blabla");
+    label2 = label_new("blabla2");
+    layout_add(layout, label, "EXPAND");
+    layout_add(layout, label2, "");
     object_set_dimensions(test_win, 100, 100);
     object_set_position(test_win, 10, 10);
   }
@@ -285,7 +334,7 @@ static void draw(void *data)
 static struct game_ctx ctx = {
   .screen_width = 320,
   .screen_height = 240,
-  .screen_scale = 1,
+  .screen_scale = 2,
   .game_name = "window-test",
   .game_load = NULL, //(void **data);
   .game_init = init, //)(void **data);
