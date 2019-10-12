@@ -131,6 +131,7 @@ void layout_add(struct layout *layout, void *object, const char *flags)
 void vbox_set_dimensions(void *object, int w, int h)
 {
   //struct layout *ctx = object;
+  /* call parent */
   object_set_dimensions_cb(object, w, h);
   /* calculate the average size */
   /* to do this 
@@ -150,14 +151,31 @@ void vbox_set_dimensions(void *object, int w, int h)
    *  6 set all remaining (not 'done') objects to the average-size */
 }
 
+void box_set_dimensions(void *object, enum layout_type_e type, int w, int h)
+{
+}
+
+void hbox_set_dimensions(void *object, int w, int h)
+{
+}
+
 struct layout *new_vbox(void)
 {
-  struct layout *ret = calloc(1, sizeof(*ret));
-  ret->object.type = OBJECT_T_LAYOUT;
+  struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
   ret->object.set_dimensions = vbox_set_dimensions;
   ret->add = layout_add;
   return ret;
 };
+
+#if 0
+struct layout *new_vbox(void)
+{
+  struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
+  ret->object.set_dimensions = vbox_set_dimensions;
+  ret->add = layout_add;
+  return ret;
+};
+#endif
 
 struct window {
   struct win_object object;
