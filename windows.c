@@ -110,18 +110,35 @@ struct widget_label *new_label(char *text, int font)
   return ret;
 }
 
-struct layout_widget_list {
-  struct widget_list *next;
-  struct widget *widget;
+/* layout flags */
+#define DONE 1
+#define EXPAND 2
+#define HIDDEN 4
+struct layout_widget_entry
+{
+  int flags;
+  void *object;
 };
 
 enum layout_type_e {LAYOUT_T_HBOX, LAYOUT_T_VBOX, LAYOUT_T_TABLE};
 struct layout {
   struct win_object object;
-  struct object *objects;
-  int object_count;
+  struct layout_widget_entry *entries; /* child objects */
+  int count; /* layout_widget_entry count */
   void (*add)(struct layout*, void *object, const char *flags);
 };
+
+static void layout_add_cb(struct layout *layout, void *object, const char *flags)
+{
+  struct layout_widget_entry *entry;
+  layout->entries = realloc(layout->entries, sizeof(*layout->entries) * (layout->count + 1));
+  entry = &layout->entries[layout->count++];
+  entry->object = object;
+  entry->flags = 0;
+  if (strcasestr(flags, "expand")) {
+    entry->flags |= EXPAND;
+  }
+}
 
 void layout_add(struct layout *layout, void *object, const char *flags)
 {
@@ -163,7 +180,7 @@ struct layout *new_vbox(void)
 {
   struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
   ret->object.set_dimensions = vbox_set_dimensions;
-  ret->add = layout_add;
+  ret->add = layout_add_cb;
   return ret;
 };
 
