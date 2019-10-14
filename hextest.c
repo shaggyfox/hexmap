@@ -1,6 +1,7 @@
 #include "engine.h"
 #include "hex.h"
 #include "hextile.h"
+#include "perlin_noise2d.h"
 
 int mouse_is_down = 0;
 struct map_pos center_pos = {0,0};
@@ -116,7 +117,7 @@ static void map_normalize_coordinates(struct mmap* map, int *x_par, int *y_par)
   *y_par = y;
 }
 
-static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
+static void draw_map_test(int seed, int x, int y, int w, int h, struct map_pos *center)
 {
   /* absolute center of the screen */
   int clip_center_x = w / 2;
@@ -129,10 +130,38 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   /* XXX initialize global map ... 
    * normally this does not belong in here */
   static struct mmap glob_map = {0};
-  if (!glob_map.w) {
-    mmap_init(&glob_map, 10, 10, 0);
-    mmap_set(&glob_map, 0, 0, 1);
-    mmap_set(&glob_map, 0, 1, 1);
+  static int last_seed = 0;
+  if (!glob_map.w || last_seed != seed) {
+    srand(seed);
+    last_seed = seed;
+    int MAP_W = 128;
+    int MAP_H = 128;
+    float perlin_noise_a[MAP_W * MAP_H];
+    float perlin_noise_b[MAP_W * MAP_H];
+    float perlin_noise_c[MAP_W * MAP_H];
+    perlin_noise2d(MAP_W, MAP_H, 64, perlin_noise_a);
+    perlin_noise2d(MAP_W, MAP_H, 32, perlin_noise_b);
+    perlin_noise2d(MAP_W, MAP_H, 16, perlin_noise_c);
+    if (!glob_map.w) {
+      mmap_init(&glob_map, MAP_W, MAP_H, 0);
+    }
+    int p = 0;
+    for (int init_y = 0; init_y < MAP_H; ++init_y) {
+      for (int init_x = 0; init_x < MAP_W; ++init_x) {
+        float perlin_noise = perlin_noise_a[p] + perlin_noise_b[p] * 0.7 + perlin_noise_c[p] * 0.4;
+        ++p;
+        float n = (perlin_noise + 1.0) / 2.0;
+        if (n < .5) {
+          mmap_set(&glob_map, init_x, init_y, 0);
+        } else if (n < 0.85) {
+          mmap_set(&glob_map, init_x, init_y, 1);
+        } else {
+          mmap_set(&glob_map, init_x, init_y, 2);
+        }
+      }
+    }
+    //mmap_set(&glob_map, 0, 0, 1);
+    //mmap_set(&glob_map, 0, 1, 1);
   }
   /* XXX */
 
@@ -191,17 +220,21 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
     off = o2 / 2;
     for (pos.x = -(ceilf(W/2.0)) + offset; pos.x < ceilf(W/2.0)+offset ; ++pos.x) {
       /* align x offset */
+
       pos.x -= off;
 
       map2screen(&pos, &screen);
       int map_x = pos.x - r_pos.x;
       int map_y = pos.y - r_pos.y;
-      map_normalize_coordinates(&glob_map, &map_x, &map_y);
-      int tile = mmap_get(&glob_map, map_x, map_y);
-      draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, tile));
+      if (map_y >= 0 && map_y < glob_map.h) {
+        map_normalize_coordinates(&glob_map, &map_x, &map_y);
+        int tile = mmap_get(&glob_map, map_x, map_y);
+        draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, tile));
+      }
 
       if (map_x == mouse_map_x && map_y == mouse_map_y) {
-        draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, 2));
+        // XXX dont draw mouse position for now
+        // draw_frame(x + center_x + screen.x, y + center_y + screen.y, tileset_get_frame_by_id(glob_tiles, 2));
       }
 
       /* reset x offset for for - loop */
@@ -212,7 +245,7 @@ static void draw_map_test(int x, int y, int w, int h, struct map_pos *center)
   draw_color(255,255,255,255);
   draw_clip_null();
 }
-
+int glob_seed= 1234;
 static void draw(void *data)
 {
   draw_color(0,0,0,255);
@@ -223,18 +256,18 @@ static void draw(void *data)
   real_center_pos.x = center_pos.x + scroll_pos.x;
   real_center_pos.y = center_pos.y + scroll_pos.y;
 
- draw_map_test(0,0,SCREEN_WIDTH,SCREEN_HEIGHT, &real_center_pos);
+ draw_map_test(glob_seed,0,0,SCREEN_WIDTH,SCREEN_HEIGHT, &real_center_pos);
 }
 
 static void key_up(int key, void *data)
 {
-  engine_quit();
+  glob_seed ++;
 }
 
 static struct game_ctx ctx = {
-  .screen_width = 200,
-  .screen_height = 150,
-  .screen_scale = 4,
+  .screen_width = 800,
+  .screen_height = 600,
+  .screen_scale = 1,
   .game_init = init,
   .game_update = update,
   .game_draw = draw,

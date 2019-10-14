@@ -14,7 +14,7 @@ set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 generate_data(${CMAKE_CURRENT_SOURCE_DIR}/hextile.png hextile.h hextile)
 #add_executable(my_game my_game.c ${CMAKE_CURRENT_BINARY_DIR}/generated_header.h)
 
-add_executable(hextest hextest.c hex.c hex.h ${CMAKE_CURRENT_BINARY_DIR}/hextile.h)
+add_executable(hextest hextest.c hex.c hex.h perlin_noise2d.c ${CMAKE_CURRENT_BINARY_DIR}/hextile.h)
 target_link_libraries(hextest engine)
 target_compile_options(hextest PUBLIC ${ENGINE_CFLAGS})
 
