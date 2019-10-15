@@ -292,8 +292,8 @@ static void key_up(int key, void *data)
 }
 
 static struct game_ctx ctx = {
-  .screen_width = 800,
-  .screen_height = 600,
+  .screen_width = 1024,
+  .screen_height = 576,
   .screen_scale = 1,
   .game_init = init,
   .game_update = update,
