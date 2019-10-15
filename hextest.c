@@ -139,25 +139,52 @@ static void draw_map_test(int seed, int x, int y, int w, int h, struct map_pos *
     float perlin_noise_a[MAP_W * MAP_H];
     float perlin_noise_b[MAP_W * MAP_H];
     float perlin_noise_c[MAP_W * MAP_H];
+    float perlin_noise_d[MAP_W * MAP_H];
+    float perlin_noise_e[MAP_W * MAP_H];
+    float perlin_noise_result[MAP_W * MAP_H];
     perlin_noise2d(MAP_W, MAP_H, 64, perlin_noise_a);
     perlin_noise2d(MAP_W, MAP_H, 32, perlin_noise_b);
     perlin_noise2d(MAP_W, MAP_H, 16, perlin_noise_c);
+    perlin_noise2d(MAP_W, MAP_H, 8, perlin_noise_d);
+    perlin_noise2d(MAP_W, MAP_H, 4, perlin_noise_e);
     if (!glob_map.w) {
       mmap_init(&glob_map, MAP_W, MAP_H, 0);
     }
     int p = 0;
+    float biggest = 0;
+    float smalest = 0;
+    for (p = 0; p < MAP_W * MAP_H; ++p) {
+      float perlin_noise = perlin_noise_a[p] * 0.7;
+      perlin_noise += perlin_noise_b[p] * 0.6;
+      perlin_noise += perlin_noise_c[p] * 0.4;
+      perlin_noise += perlin_noise_d[p] * 0.3;
+      perlin_noise += perlin_noise_e[p] * 0.2;
+      if (perlin_noise < smalest) {
+        smalest = perlin_noise;
+      } else if (perlin_noise > biggest) {
+        biggest = perlin_noise;
+      }
+      perlin_noise_result[p] = perlin_noise;
+    }
+    smalest = fabs(smalest);
+    p = 0;
     for (int init_y = 0; init_y < MAP_H; ++init_y) {
       for (int init_x = 0; init_x < MAP_W; ++init_x) {
-        float perlin_noise = perlin_noise_a[p] + perlin_noise_b[p] * 0.7 + perlin_noise_c[p] * 0.4;
-        ++p;
-        float n = (perlin_noise + 1.0) / 2.0;
-        if (n < .5) {
+        if (perlin_noise_result[p] < 0.0) {
+          perlin_noise_result[p] /= smalest;
+        } else {
+          perlin_noise_result[p] /= biggest;
+        }
+
+        float n = (perlin_noise_result[p] + 1.0) / 2.0;
+        if (n < .6) {
           mmap_set(&glob_map, init_x, init_y, 0);
-        } else if (n < 0.85) {
+        } else if (n < 0.90) {
           mmap_set(&glob_map, init_x, init_y, 1);
         } else {
           mmap_set(&glob_map, init_x, init_y, 2);
         }
+      ++p;
       }
     }
     //mmap_set(&glob_map, 0, 0, 1);
