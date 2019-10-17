@@ -18,7 +18,7 @@ add_executable(hextest hextest.c hex.c hex.h perlin_noise2d.c ${CMAKE_CURRENT_BI
 target_link_libraries(hextest engine)
 target_compile_options(hextest PUBLIC ${ENGINE_CFLAGS})
 
-add_executable(windows windows.c)
+add_executable(windows windows.c list.c)
 target_link_libraries(windows engine)
 target_compile_options(windows PUBLIC ${ENGINE_CFLAGS})
 

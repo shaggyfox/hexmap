@@ -10,6 +10,8 @@ struct win_object {
   void (*get_position)(void *data, int *x, int *y);
   void (*draw)(void *data, int x, int y);
   void (*mouse)(void *data, int x, int y, SDL_Rect *mouse_position);
+  void (*on_change)(void *data, void *cb_data);
+  void *on_change_cb_data;
   SDL_Rect rect;
 };
 
@@ -50,6 +52,21 @@ void *object_new(enum object_type_e type, int size)
   ret->set_position = object_set_position_cb;
   ret->get_position = object_get_position_cb;
   return ret;
+}
+
+void object_set_on_change(void *object, void (*cb)(void*, void*), void* cb_data)
+{
+  struct win_object *ctx = object;
+  ctx->on_change = cb;
+  ctx->on_change_cb_data = cb_data;
+}
+
+void object_changed(void *object)
+{
+  struct win_object *ctx = object;
+  if (ctx->on_change) {
+    ctx->on_change(object, ctx->on_change_cb_data);
+  }
 }
 
 void object_get_dimensions(void *object, int *w, int *h)
@@ -121,6 +138,17 @@ void label_draw(void *object, int x, int y)
   struct widget_label *ctx = object;
   draw_text(x, y, ctx->text);
 }
+#include <stdarg.h>
+void label_set(struct widget_label *ctx, char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  if (ctx->text) {
+    free(ctx->text);
+  }
+  vasprintf(&ctx->text, fmt, ap);
+  va_end(ap);
+}
 
 struct widget_label *label_new(char *text)
 {
@@ -181,6 +209,8 @@ void slider_mouse(void *object, int x, int y, SDL_Rect *mouse_position)
   if (ctx->value > ctx->range + ctx->offset) {
     ctx->value = ctx->range + ctx->offset;
   }
+  /* notify about the change */
+  object_changed(object);
 }
 
 struct widget_slider *slider_new(int range, int value)
@@ -193,13 +223,6 @@ struct widget_slider *slider_new(int range, int value)
   ret->value = value;
   return ret;
 }
-
-/*
- * TODO: mouse events
-void slider_on_mouse(object, int x, int y, int button)
-{
-}
-*/
 
 /* layout flags */
 #define DONE 1
@@ -517,26 +540,57 @@ struct window *window_new(int w, int h)
   return ret;
 }
 
-static struct window *test_win = NULL;
-int test_button = 0;
+#include "list.h"
+
+struct windowmanager {
+  dlist window_list;
+};
+
+void windowmanager_draw(struct windowmanager *win_manager)
+{
+  for (dlist_iter *i = dlist_begin(&win_manager->window_list);
+        i; i = dlist_next(i)) {
+    object_draw(dlist_data(i), 0, 0);
+  }
+}
+
+void windowmanager_mouse_move(struct windowmanager *win_manager, int x, int y)
+{
+}
+
+void windowmanager_mouse_down(struct windowmanager *win_manager, int button, int x, int y)
+{
+  for (dlist_iter *i = dlist_begin(&win_manager->window_list); i; i = dlist_next(i)) {
+    struct win_object *win = dlist_data(i);
+    if (abs(win->rect.x + win->rect.w / 2 - x) < win->rect.w / 2 &&
+        abs(win->rect.y + win->rect.h / 2 - y) < win->rect.h / 2) {
+      SDL_Rect mouse_position = {.x = x, .y= y, .w = button};
+      object_mouse(win, 0, 0, &mouse_position);
+    }
+  }
+}
+
+void windowmanager_mouse_up(struct windowmanager *win_manager, int button, int x, int y)
+{
+}
+
+void windowmanager_add(struct windowmanager *win_manager, struct window *win)
+{
+  dlist_append(&win_manager->window_list, win);
+}
+
+static struct windowmanager glob_win_mgmt;
+
 void mouse_up(int button, int x, int y, void *data)
 {
-  test_button = 0;
 }
 void mouse_down(int button, int x, int y, void *data) {
 
-  test_button = 1;
-  SDL_Rect mouse_position = {.x = x, .y = y, .w = button};
-  object_mouse(test_win, 0, 0, &mouse_position);
+  windowmanager_mouse_down(&glob_win_mgmt, button, x, y);
 }
 
 void mouse_motion(int x, int y, void *data)
 {
-  /* XXX */
-  if (test_button) {
-    mouse_down(test_button, x, y, data);
-  }
-  /* XXX */
 }
 
 static void init(void **data)
@@ -548,12 +602,21 @@ static void update(void *data, float delta)
 {
 }
 
+static void on_change1_cb(void *object, void *data)
+{
+  struct widget_slider *ctx = object;
+  struct widget_label *ll = data;
+
+  label_set(ll, "value: %d", ctx->value);
+}
+
 static void draw(void *data)
 {
   static void *label;
   static void *label2;
   static struct layout *layout;
   static void *slider;
+  static struct window *test_win = NULL;
   if (!test_win) {
     test_win = window_new(50, 50);
     layout = vbox_new();
@@ -564,13 +627,14 @@ static void draw(void *data)
     slider = slider_new(10,0);
     layout_add(layout, slider, "");
     layout_add(layout, label2, "");
-
+    object_set_on_change(slider, on_change1_cb, label2);
     object_set_dimensions(test_win, 100, 100);
     object_set_position(test_win, 10, 10);
+    windowmanager_add(&glob_win_mgmt, test_win);
   }
   draw_color(0,0,0,0);
   clear_screen();
-  object_draw(test_win, 0, 0);
+  windowmanager_draw(&glob_win_mgmt);
 }
 
 static struct game_ctx ctx = {
