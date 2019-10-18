@@ -121,8 +121,7 @@ void *object_mouse(void *object, SDL_Rect *mouse_position)
 {
   struct win_object *ctx = object;
   if (ctx->mouse) {
-    ctx->mouse(object, mouse_position);
-    return object;
+    return ctx->mouse(object, mouse_position);
   } else {
     printf("DEBUG no mouse event handler\n");
   }
@@ -654,15 +653,17 @@ void windowmanager_mouse_down(struct windowmanager *win_manager, int button, int
   SDL_Rect mouse_position = {.x = x, .y= y, .w = button};
   if (win_manager->current_event_object) {
     object_mouse(win_manager->current_event_object, &mouse_position);
-  }
-  for (dlist_iter *i = dlist_begin(&win_manager->window_list); i; i = dlist_next(i)) {
-    struct win_object *win = dlist_data(i);
-    if (abs(win->rect.x + win->rect.w / 2 - x) < win->rect.w / 2 &&
-        abs(win->rect.y + win->rect.h / 2 - y) < win->rect.h / 2) {
-      void *ret = object_mouse(win, &mouse_position);
-      if (!win_manager->current_event_object) {
-        win_manager->current_event_object = ret;
-        win_manager->button_down_value = button;
+  } else {
+    for (dlist_iter *i = dlist_begin(&win_manager->window_list); i; i = dlist_next(i)) {
+      struct win_object *win = dlist_data(i);
+      if (abs(win->rect.x + win->rect.w / 2 - x) < win->rect.w / 2 &&
+          abs(win->rect.y + win->rect.h / 2 - y) < win->rect.h / 2) {
+        void *ret = object_mouse(win, &mouse_position);
+        printf("ret=%p\n", ret);
+        if (!win_manager->current_event_object) {
+          win_manager->current_event_object = ret;
+          win_manager->button_down_value = button;
+        }
       }
     }
   }
