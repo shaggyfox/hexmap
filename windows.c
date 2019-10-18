@@ -25,8 +25,8 @@ struct win_object {
   void (*set_position)(void *data, int x, int y);
   void (*get_position)(void *data, int *x, int *y);
   void (*draw)(void *data);
-  void (*mouse)(void *data, SDL_Rect *mouse_position);
-  void (*event)(void *data, struct event_st *event);
+  struct win_object *(*mouse)(void *data, SDL_Rect *mouse_position);
+  struct win_object *(*event)(void *data, struct event_st *event);
   void (*on_change)(void *data, void *cb_data);
   void *on_change_cb_data;
   SDL_Rect rect;
@@ -117,15 +117,18 @@ void object_draw(void *object)
   ctx->draw(object);
 }
 
-void object_mouse(void *object, SDL_Rect *mouse_position)
+void *object_mouse(void *object, SDL_Rect *mouse_position)
 {
   struct win_object *ctx = object;
   if (ctx->mouse) {
     ctx->mouse(object, mouse_position);
+    return object;
   } else {
     printf("DEBUG no mouse event handler\n");
   }
+  return NULL;
 }
+
 
 void object_inject_event(void *object, struct event_st *event)
 {
@@ -136,7 +139,6 @@ void object_inject_event(void *object, struct event_st *event)
     printf("DEBUG no event handler\n");
   }
 }
-
 
 struct widget {
   struct win_object object;
@@ -227,7 +229,7 @@ void slider_draw(void *object)
   draw_fill_rect4(x + (ctx->value * (w - 10)) / ctx->range, y + 5, 10, 5);
 }
 
-void slider_mouse(void *object, SDL_Rect *mouse_position)
+struct win_object *slider_mouse(void *object, SDL_Rect *mouse_position)
 {
   struct widget_slider *ctx = object;
   int w, h;
@@ -243,9 +245,10 @@ void slider_mouse(void *object, SDL_Rect *mouse_position)
   }
   /* notify about the change */
   object_changed(object);
+  return object;
 }
 
-void slider_event(void *object, struct event_st *event)
+struct win_object *slider_event(void *object, struct event_st *event)
 {
   //struct widget_slider *ctx = object;
   switch (event->type) {
@@ -255,6 +258,7 @@ void slider_event(void *object, struct event_st *event)
     default:
       break;
   }
+  return object;
 }
 
 struct widget_slider *slider_new(int range, int value)
@@ -305,9 +309,10 @@ void layout_add(struct layout *layout, void *object, const char *flags)
   layout->add(layout, object, flags);
 }
 
-static void box_foreach(void *object, int x, int y, enum layout_type_e layout_type,
-    void (*cb)(void *ctx, void *object, SDL_Rect *rect, void *cb_data), void *cb_data)
+static struct win_object *box_foreach(void *object, int x, int y, enum layout_type_e layout_type,
+    void* (*cb)(void *ctx, void *object, SDL_Rect *rect, void *cb_data), void *cb_data)
 {
+  void *ret = NULL;
   struct layout *ctx = object;
   int tmp_w, tmp_h;
   object_get_dimensions(object, &tmp_w, &tmp_h);
@@ -320,7 +325,9 @@ static void box_foreach(void *object, int x, int y, enum layout_type_e layout_ty
       .y = draw_y,
       .w = tmp_w,
       .h = tmp_h };
-    cb(object, ctx->entries[i].object, &rect, cb_data);
+    if ((ret = cb(object, ctx->entries[i].object, &rect, cb_data))) {
+      break;
+    }
     switch (layout_type) {
       case LAYOUT_T_VBOX:
         y += ctx->entries[i].height;
@@ -332,33 +339,37 @@ static void box_foreach(void *object, int x, int y, enum layout_type_e layout_ty
         break;
     }
   }
-
+  return ret;
 }
 
-static void box_mouse_cb(void *ctx, void *object, SDL_Rect *rect, void *cb_data)
+static void *box_mouse_cb(void *ctx, void *object, SDL_Rect *rect, void *cb_data)
 {
   SDL_Rect *mouse_position = cb_data;
   if (abs(rect->x + rect->w / 2 - mouse_position->x) < rect->w / 2 &&
       abs(rect->y + rect->h / 2 - mouse_position->y) < rect->h / 2) {
-    object_mouse(object, cb_data);
+    /* stop loop */
+    return object_mouse(object, cb_data);
   }
+  return NULL; /* keep going */
 }
 
-static void box_mouse(void *object, enum layout_type_e layout_type, SDL_Rect *mouse_position)
+static struct win_object *box_mouse(void *object, enum layout_type_e layout_type, SDL_Rect *mouse_position)
 {
   struct win_object *ctx = object;
-  box_foreach(object, ctx->rect.x, ctx->rect.y, layout_type, box_mouse_cb, mouse_position);
+  return box_foreach(object, ctx->rect.x, ctx->rect.y, layout_type, box_mouse_cb, mouse_position);
 }
 
-static void vbox_mouse(void *object, SDL_Rect *mouse_position)
+static struct win_object *vbox_mouse(void *object, SDL_Rect *mouse_position)
 {
-  box_mouse(object, LAYOUT_T_VBOX, mouse_position);
+  return box_mouse(object, LAYOUT_T_VBOX, mouse_position);
 }
 
-static void box_draw_callback (void *object, void *entry, SDL_Rect *rect, void* cb_data)
+static void *box_draw_callback (void *object, void *entry, SDL_Rect *rect, void* cb_data)
 {
   object_draw(entry);
+  return NULL; /* keep going */
 }
+
 static void box_draw(void *object, enum layout_type_e layout_type)
 {
   draw_color(255,0,0,255);
@@ -370,9 +381,10 @@ static void box_draw(void *object, enum layout_type_e layout_type)
   box_foreach(object, x, y, layout_type, box_draw_callback, NULL);
 }
 
-static void box_set_position_cb(void *object, void *entry, SDL_Rect *rect, void *data)
+static void *box_set_position_cb(void *object, void *entry, SDL_Rect *rect, void *data)
 {
   object_set_position(entry, rect->x, rect->y);
+  return NULL; /* keep on going */
 }
 
 static void box_set_position(void *object, int x, int y, enum layout_type_e layout_type)
@@ -586,7 +598,7 @@ void window_draw(void *data)
   }
 }
 
-static void window_mouse_cb(void *object, SDL_Rect *mouse_position)
+static struct win_object *window_mouse_cb(void *object, SDL_Rect *mouse_position)
 {
   struct window *ctx = object;
   if (ctx->layout) {
@@ -598,9 +610,10 @@ static void window_mouse_cb(void *object, SDL_Rect *mouse_position)
         (abs(x + w / 2 - mouse_position->x) < w / 2) &&
         (abs(y + h / 2 - mouse_position->y) < h / 2)
        ) {
-      object_mouse(ctx->layout, mouse_position);
+      return object_mouse(ctx->layout, mouse_position);
     }
   }
+  return NULL;
 }
 
 struct window *window_new(int w, int h)
@@ -616,6 +629,8 @@ struct window *window_new(int w, int h)
 
 struct windowmanager {
   dlist window_list;
+  int button_down_value;
+  void *current_event_object;
 };
 
 void windowmanager_draw(struct windowmanager *win_manager)
@@ -628,22 +643,38 @@ void windowmanager_draw(struct windowmanager *win_manager)
 
 void windowmanager_mouse_move(struct windowmanager *win_manager, int x, int y)
 {
+  SDL_Rect mouse_position = {.x = x, .y= y, .w = win_manager->button_down_value};
+  if (win_manager->current_event_object) {
+    object_mouse(win_manager->current_event_object, &mouse_position);
+  }
 }
 
 void windowmanager_mouse_down(struct windowmanager *win_manager, int button, int x, int y)
 {
+  SDL_Rect mouse_position = {.x = x, .y= y, .w = button};
+  if (win_manager->current_event_object) {
+    object_mouse(win_manager->current_event_object, &mouse_position);
+  }
   for (dlist_iter *i = dlist_begin(&win_manager->window_list); i; i = dlist_next(i)) {
     struct win_object *win = dlist_data(i);
     if (abs(win->rect.x + win->rect.w / 2 - x) < win->rect.w / 2 &&
         abs(win->rect.y + win->rect.h / 2 - y) < win->rect.h / 2) {
-      SDL_Rect mouse_position = {.x = x, .y= y, .w = button};
-      object_mouse(win, &mouse_position);
+      void *ret = object_mouse(win, &mouse_position);
+      if (!win_manager->current_event_object) {
+        win_manager->current_event_object = ret;
+        win_manager->button_down_value = button;
+      }
     }
   }
 }
 
 void windowmanager_mouse_up(struct windowmanager *win_manager, int button, int x, int y)
 {
+  SDL_Rect mouse_position = {.x = x, .y= y, .w = button};
+  if (win_manager->current_event_object) {
+    object_mouse(win_manager->current_event_object, &mouse_position);
+    win_manager->current_event_object = NULL;
+  }
 }
 
 void windowmanager_add(struct windowmanager *win_manager, struct window *win)
@@ -655,6 +686,7 @@ static struct windowmanager glob_win_mgmt;
 
 void mouse_up(int button, int x, int y, void *data)
 {
+  windowmanager_mouse_up(&glob_win_mgmt, button, x, y);
 }
 void mouse_down(int button, int x, int y, void *data) {
 
@@ -663,6 +695,7 @@ void mouse_down(int button, int x, int y, void *data) {
 
 void mouse_motion(int x, int y, void *data)
 {
+  windowmanager_mouse_move(&glob_win_mgmt, x, y);
 }
 
 static void init(void **data)
