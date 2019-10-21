@@ -311,8 +311,11 @@ struct layout_widget_entry
 enum layout_type_e {LAYOUT_T_HBOX, LAYOUT_T_VBOX, LAYOUT_T_TABLE};
 struct layout {
   struct win_object object;
+  enum layout_type_e type;
   struct layout_widget_entry *entries; /* child objects */
   int count; /* layout_widget_entry count */
+  int width_spacing;
+  int height_spacing;
   void (*add)(struct layout*, void *object, const char *flags);
 };
 
@@ -333,7 +336,7 @@ void layout_add(struct layout *layout, void *object, const char *flags)
   layout->add(layout, object, flags);
 }
 
-static struct win_object *box_foreach(void *object, int x, int y, enum layout_type_e layout_type,
+static struct win_object *box_foreach(void *object, int x, int y,
     void* (*cb)(void *ctx, void *object, SDL_Rect *rect, void *cb_data), void *cb_data)
 {
   void *ret = NULL;
@@ -352,7 +355,7 @@ static struct win_object *box_foreach(void *object, int x, int y, enum layout_ty
     if ((ret = cb(object, ctx->entries[i].object, &rect, cb_data))) {
       break;
     }
-    switch (layout_type) {
+    switch (ctx->type) {
       case LAYOUT_T_VBOX:
         y += ctx->entries[i].height;
         break;
@@ -377,11 +380,11 @@ static void *box_mouse_event_foreach_cb(void *ctx, void *object, SDL_Rect *rect,
   return NULL; /* keep going */
 }
 
-static struct win_object *box_event_handler(void *object, struct event_st *event, enum layout_type_e layout_type)
+static struct win_object *box_event_handler(void *object, struct event_st *event)
 {
   struct win_object *ctx = object;
   if (event->type == EVENT_T_MOUSE) {
-    return box_foreach(object, ctx->rect.x, ctx->rect.y, layout_type, box_mouse_event_foreach_cb, event);
+    return box_foreach(object, ctx->rect.x, ctx->rect.y, box_mouse_event_foreach_cb, event);
   }
   return NULL;
 }
@@ -392,7 +395,7 @@ static void *box_draw_foreach_callback (void *object, void *entry, SDL_Rect *rec
   return NULL; /* keep going */
 }
 
-static void box_draw_handler(void *object, enum layout_type_e layout_type)
+static void box_draw_handler(void *object)
 {
   draw_color(255,0,0,255);
   int tmp_w, tmp_h;
@@ -400,7 +403,22 @@ static void box_draw_handler(void *object, enum layout_type_e layout_type)
   object_get_position(object, &x, &y);
   object_get_dimensions(object, &tmp_w, &tmp_h);
   draw_rect4(x, y, tmp_w, tmp_h);
-  box_foreach(object, x, y, layout_type, box_draw_foreach_callback, NULL);
+  box_foreach(object, x, y, box_draw_foreach_callback, NULL);
+}
+
+/* TODO: */
+void box_set_spacing(struct layout *object, int spacing)
+{
+  switch (object->type) {
+    case LAYOUT_T_HBOX:
+      object->width_spacing = spacing;
+      break;
+    case LAYOUT_T_VBOX:
+      object->height_spacing = spacing;
+      break;
+    default:
+      break;
+  }
 }
 
 static void *box_set_position_cb(void *object, void *entry, SDL_Rect *rect, void *data)
@@ -409,11 +427,11 @@ static void *box_set_position_cb(void *object, void *entry, SDL_Rect *rect, void
   return NULL; /* keep on going */
 }
 
-static void box_set_position(void *object, int x, int y, enum layout_type_e layout_type)
+static void box_set_position(void *object, int x, int y)
 {
   /* call parent */
   object_set_position_default_handler(object, x, y);
-  box_foreach(object, x, y, layout_type, box_set_position_cb, NULL);
+  box_foreach(object, x, y, box_set_position_cb, NULL);
 }
 
 static void box_set_dimensions(void *object, int w, int h, enum layout_type_e layout_type)
@@ -547,28 +565,14 @@ void hbox_set_dimensions(void *object, int w, int h)
   box_set_dimensions(object, w, h, LAYOUT_T_HBOX);
 }
 
-static struct win_object *hbox_event_handler(void *object, struct event_st *event)
-{
-  return box_event_handler(object, event, LAYOUT_T_HBOX);
-}
-
-static void hbox_set_position(void *object, int x, int y)
-{
-  box_set_position(object, x, y, LAYOUT_T_HBOX);
-}
-
-static void hbox_draw_handler(void *object)
-{
-  box_draw_handler(object, LAYOUT_T_HBOX);
-}
-
 struct layout *hbox_new(void)
 {
   struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
   ret->object.set_dimensions = hbox_set_dimensions;
-  ret->object.draw = hbox_draw_handler;
-  ret->object.event = hbox_event_handler;
-  ret->object.set_position = hbox_set_position;
+  ret->object.draw = box_draw_handler;
+  ret->object.event = box_event_handler;
+  ret->object.set_position = box_set_position;
+  ret->type = LAYOUT_T_HBOX;
   ret->add = layout_add_handler;
   return ret;
 };
@@ -583,34 +587,15 @@ void vbox_set_dimensions(void *object, int w, int h)
   box_set_dimensions(object, w, h, LAYOUT_T_VBOX);
 }
 
-
-static struct win_object *vbox_event_handler(void *object, struct event_st *event)
-{
-  return box_event_handler(object, event, LAYOUT_T_VBOX);
-}
-
-
-static void vbox_set_position(void *object, int x, int y)
-{
-  box_set_position(object, x, y, LAYOUT_T_VBOX);
-}
-
-
-static void vbox_draw_handler(void *object)
-{
-  box_draw_handler(object, LAYOUT_T_VBOX);
-}
-
-
-
 struct layout *vbox_new(void)
 {
   struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
   ret->object.set_dimensions = vbox_set_dimensions;
-  ret->object.event = vbox_event_handler;
-  ret->object.draw = vbox_draw_handler;
-  ret->object.set_position = vbox_set_position;
+  ret->object.event = box_event_handler;
+  ret->object.draw = box_draw_handler;
+  ret->object.set_position = box_set_position;
   ret->add = layout_add_handler;
+  ret->type = LAYOUT_T_VBOX;
   return ret;
 };
 
