@@ -175,13 +175,29 @@ struct widget_space {
 static void space_get_dimensions_handler(void *object, int *w, int *h)
 {
   struct widget_space *ctx = object;
-  *w = ctx->min_width;
-  *h = ctx->min_height;
+  if (ctx->min_width > ctx->widget.object.rect.w) {
+    *w = ctx->min_width;
+  } else {
+    *w = ctx->widget.object.rect.w;
+  }
+
+  if (ctx->min_height > ctx->widget.object.rect.h) {
+    *h = ctx->min_height;
+  } else {
+    *h = ctx->widget.object.rect.h;
+  }
 }
 
 void space_draw(void *object)
 {
   /* do nothing */
+#ifdef DEBUG
+  struct win_object *ctx = object;
+  int tmp_w, tmp_h;
+  object_get_dimensions(object, &tmp_w, &tmp_h);
+  draw_color(0,0,255,255);
+  draw_rect4(ctx->rect.x, ctx->rect.y, tmp_w, tmp_h);
+#endif
 }
 
 struct widget_space *space_new(int w, int h)
