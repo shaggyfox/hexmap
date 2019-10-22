@@ -256,6 +256,74 @@ struct widget_label *label_new(char *text)
 }
 
 /* ===================================================================== */
+/* ======================== WIDGET: button ============================== */
+/* ===================================================================== */
+struct widget_button {
+  struct widget widget;
+  char *text;
+  int font;
+  void (*on_click_cb)(void *obj, void *data);
+  void *on_click_cb_data;
+};
+
+void button_get_dimensions(void *object, int *w, int *h)
+{
+  struct widget_button *ctx = object;
+  SDL_Rect rect;
+  text_dimensions(ctx->text, &rect);
+  *w = rect.w + 4;
+  *h = rect.h + 4;
+}
+
+void button_draw(void *object)
+{
+  struct widget_button *ctx = object;
+  int x, y, w, h;
+  object_get_position(object, &x, &y);
+  object_get_dimensions(object, &w, &h);
+  draw_color(180,180,180,255);
+  draw_fill_rect4(x, y, w, h);
+  draw_color(100,100,100,255);
+  draw_rect4(x, y, w, h);
+  draw_color(0,0,0,255);
+  draw_text(x + 2, y + 2, ctx->text);
+}
+
+struct win_object *button_event(void *object, struct event_st *event)
+{
+  if (event->type == EVENT_T_MOUSE) {
+    struct mouse_event *mouse = (void*)event;
+    int x, y, w, h;
+    object_get_position(object, &x, &y);
+    object_get_dimensions(object, &w, &h);
+    if (abs(x + w / 2 - mouse->x) < w / 2 &&
+        abs(y + h / 2 - mouse->y) < h / 2) {
+      if (mouse->type == MOUSE_BUTTON_DOWN) {
+        return object;
+      } else if (mouse->type == MOUSE_BUTTON_UP) {
+        struct widget_button *ctx = object;
+        printf("button pressed\n");
+        if (ctx->on_click_cb) {
+          ctx->on_click_cb(object, ctx->on_click_cb_data);
+        }
+      }
+    }
+  }
+  return NULL;
+}
+
+struct widget_button *button_new(char *text)
+{
+  struct widget_button *ret = object_new(OBJECT_T_WIDGET, sizeof(*ret));
+  ret->widget.object.draw = button_draw;
+  ret->widget.object.get_dimensions = button_get_dimensions;
+  ret->widget.object.event = button_event;
+  ret->text = strdup(text);
+  ret->font = FONT_DEFAULT;
+  return ret;
+}
+
+/* ===================================================================== */
 /* ======================== WIDGET: slider ============================= */
 /* ===================================================================== */
 
@@ -815,8 +883,11 @@ static void draw(void *data)
     layout_add(layout, slider, "");
     layout_add(layout, space, "");
     layout_add(layout, label2, "");
+    void *button1 = button_new("button");
+    layout_add(layout, button1, "");
     object_set_on_change(slider, on_change1_cb, label2);
     object_set_dimensions(test_win, 100, 100);
+
     object_set_position(test_win, 50, 50);
     windowmanager_add(&glob_win_mgmt, test_win);
   }
