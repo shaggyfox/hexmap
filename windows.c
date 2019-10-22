@@ -162,6 +162,37 @@ struct widget {
   struct win_object object;
 };
 
+/* ===================================================================== */
+/* ======================== WIDGET: space ============================== */
+/* ===================================================================== */
+
+struct widget_space {
+  struct widget widget;
+  int min_width;
+  int min_height;
+};
+
+static void space_get_dimensions_handler(void *object, int *w, int *h)
+{
+  struct widget_space *ctx = object;
+  *w = ctx->min_width;
+  *h = ctx->min_height;
+}
+
+void space_draw(void *object)
+{
+  /* do nothing */
+}
+
+struct widget_space *space_new(int w, int h)
+{
+  struct widget_space *ret = object_new(OBJECT_T_WIDGET, sizeof(*ret));
+  ret->min_width = w;
+  ret->min_height = h;
+  ret->widget.object.get_dimensions = space_get_dimensions_handler;
+  ret->widget.object.draw = space_draw;
+  return ret;
+}
 
 /* ===================================================================== */
 /* ======================== WIDGET: label ============================== */
@@ -314,8 +345,6 @@ struct layout {
   enum layout_type_e type;
   struct layout_widget_entry *entries; /* child objects */
   int count; /* layout_widget_entry count */
-  int width_spacing;
-  int height_spacing;
   void (*add)(struct layout*, void *object, const char *flags);
 };
 
@@ -404,21 +433,6 @@ static void box_draw_handler(void *object)
   object_get_dimensions(object, &tmp_w, &tmp_h);
   draw_rect4(x, y, tmp_w, tmp_h);
   box_foreach(object, x, y, box_draw_foreach_callback, NULL);
-}
-
-/* TODO: */
-void box_set_spacing(struct layout *object, int spacing)
-{
-  switch (object->type) {
-    case LAYOUT_T_HBOX:
-      object->width_spacing = spacing;
-      break;
-    case LAYOUT_T_VBOX:
-      object->height_spacing = spacing;
-      break;
-    default:
-      break;
-  }
 }
 
 static void *box_set_position_cb(void *object, void *entry, SDL_Rect *rect, void *data)
@@ -769,6 +783,7 @@ static void draw(void *data)
 {
   static void *label;
   static void *label2;
+  static void *space;
   static struct layout *layout;
   static void *slider;
   static struct window *test_win = NULL;
@@ -777,10 +792,12 @@ static void draw(void *data)
     layout = vbox_new();
     window_set_layout(test_win, layout);
     label = label_new("blabla");
+    space = space_new(0, 10);
     label2 = label_new("blabla2");
     layout_add(layout, label, "EXPAND");
     slider = slider_new(10,0);
     layout_add(layout, slider, "");
+    layout_add(layout, space, "");
     layout_add(layout, label2, "");
     object_set_on_change(slider, on_change1_cb, label2);
     object_set_dimensions(test_win, 100, 100);
