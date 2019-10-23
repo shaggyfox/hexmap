@@ -95,22 +95,25 @@ void object_set_dimensions(void *object, int w, int h)
   ctx->set_dimensions(object, w, h);
 }
 
-void object_set_position(void *object, int w, int h)
+void object_set_position(void *object, int x, int y)
 {
   struct win_object *ctx = object;
-  ctx->set_position(object, w, h);
+  ctx->set_position(object, x, y);
 }
 
-void object_get_position(void *object, int *w, int *h)
+void object_get_position(void *object, int *x, int *y)
 {
   struct win_object *ctx = object;
-  ctx->get_position(object, w, h);
+  ctx->get_position(object, x, y);
 }
 
 void object_draw(void *object)
 {
   struct win_object *ctx = object;
-  object_set_position(object, ctx->rect.x, ctx->rect.y);
+  /* update position */
+  int tmp_x, tmp_y;
+  object_get_position(object, &tmp_x, &tmp_y);
+  object_set_position(object, tmp_x, tmp_y);
   ctx->draw(object);
 }
 
@@ -254,6 +257,73 @@ struct widget_label *label_new(char *text)
   ret->font = FONT_DEFAULT;
   return ret;
 }
+
+
+/* ===================================================================== */
+/* ======================== WIDGET: Checkbox =========================== */
+/* ===================================================================== */
+
+struct widget_checkbox {
+  struct widget widget;
+  struct layout *layout;
+};
+
+
+struct layout *vbox_new(void);
+struct layout *hbox_new(void);
+void layout_add(struct layout *layout, void *object, const char *flags);
+
+void checkbox_get_dimensions_handler(void *object, int *w, int *h)
+{
+  struct widget_checkbox *ctx = object;
+  object_get_dimensions(ctx->layout, w, h);
+}
+
+void checkbox_set_dimensions_handler(void *object, int w, int h)
+{
+  struct widget_checkbox *ctx = object;
+  object_set_dimensions(ctx->layout, w, h);
+}
+
+void checkbox_get_position_handler(void *object, int *x, int *y)
+{
+  struct widget_checkbox *ctx = object;
+  object_get_position(ctx->layout, x, y);
+}
+
+void checkbox_set_position_handler(void *object, int x, int y)
+{
+  struct widget_checkbox *ctx = object;
+  object_set_position(ctx->layout, x, y);
+}
+
+void checkbox_draw_handler(void *object)
+{
+  struct widget_checkbox *ctx = object;
+  object_draw(ctx->layout);
+}
+
+struct widget_checkbox *checkbox_new(char *name)
+{
+  struct widget_checkbox *ret = object_new(OBJECT_T_WIDGET, sizeof(*ret));
+  ret->widget.object.draw = checkbox_draw_handler;
+  ret->widget.object.get_position = checkbox_get_position_handler;
+  ret->widget.object.set_position = checkbox_set_position_handler;
+  ret->widget.object.get_dimensions = checkbox_get_dimensions_handler;
+  ret->widget.object.set_dimensions = checkbox_set_dimensions_handler;
+  ret->layout = hbox_new();
+  struct widget_label *labela = label_new("0");
+  struct widget_label *labelb = label_new(name);
+  layout_add(ret->layout, labela, "");
+  layout_add(ret->layout, labelb, "LEFT");
+  return ret;
+}
+
+
+/* ===================================================================== */
+/* ======================== WIDGET: Radiobuttons ======================= */
+/* ===================================================================== */
+
 
 /* ===================================================================== */
 /* ======================== WIDGET: button ============================== */
@@ -415,6 +485,10 @@ struct widget_slider *slider_new(int range, int value)
 #define DONE 1
 #define EXPAND 2
 #define HIDDEN 4
+#define LEFT 8
+#define RIGHT 16
+#define TOP 32
+#define BOTTOM 64
 struct layout_widget_entry
 {
   int flags;
@@ -442,6 +516,18 @@ static void layout_add_handler(struct layout *layout, void *object, const char *
   if (strcasestr(flags, "expand")) {
     entry->flags |= EXPAND;
   }
+  if (strcasestr(flags, "left")) {
+    entry->flags |= LEFT;
+  }
+  if (strcasestr(flags , "right")) {
+    entry->flags |= RIGHT;
+  }
+  if (strcasestr(flags, "top")) {
+    entry->flags |= TOP;
+  }
+  if (strcasestr(flags, "bottom")) {
+    entry->flags |= BOTTOM;
+  }
 }
 
 void layout_add(struct layout *layout, void *object, const char *flags)
@@ -455,11 +541,27 @@ static struct win_object *box_foreach(void *object, int x, int y,
   void *ret = NULL;
   struct layout *ctx = object;
   int tmp_w, tmp_h;
-  object_get_dimensions(object, &tmp_w, &tmp_h);
+  object_get_dimensions_default_handler(object, &tmp_w, &tmp_h);
   for (int i = 0; i < ctx->count; ++i) {
     object_get_dimensions(ctx->entries[i].object, &tmp_w, &tmp_h);
-    int draw_x = x + (ctx->entries[i].width - tmp_w) / 2;
-    int draw_y = y + (ctx->entries[i].height - tmp_h) / 2;
+    int draw_x = x;
+    int draw_y = y;
+    if (ctx->entries[i].flags & LEFT) {
+      /* left align */
+    } else if (ctx->entries[i].flags & RIGHT) {
+      /* right align */
+      draw_x += ctx->entries[i].width - tmp_w;
+    } else {
+      /* center x */
+      draw_x += (ctx->entries[i].width - tmp_w) / 2;
+    }
+    /* center y */
+    if (ctx->entries[i].flags & TOP) {
+    } else if (ctx->entries[i].flags & BOTTOM) {
+      draw_y += ctx->entries[i].height - tmp_h;
+    } else {
+      draw_y += (ctx->entries[i].height - tmp_h) / 2;
+    }
     SDL_Rect rect = {
       .x = draw_x,
       .y = draw_y,
@@ -532,6 +634,51 @@ static void box_set_position(void *object, int x, int y)
   box_foreach(object, x, y, box_set_position_cb, NULL);
 }
 
+static void* vbox_size_cb(void *object, void *entry, SDL_Rect *rect, void *cb_data)
+{
+  SDL_Rect *out_rect = cb_data;
+  if (rect->w > out_rect->w) {
+    out_rect->w = rect->w;
+  }
+  out_rect->h += rect->h;
+  return NULL;
+}
+
+static void* hbox_size_cb(void *object, void *entry, SDL_Rect *rect, void *cb_data)
+{
+  SDL_Rect *out_rect = cb_data;
+  if (rect->h > out_rect->h) {
+    out_rect->h = rect->h;
+  }
+  out_rect->w += rect->w;
+  return NULL;
+}
+
+static void box_get_dimensions(void *object, int *w, int *h)
+{
+  struct layout *ctx = object;
+  SDL_Rect rect = {0};
+
+  switch(ctx->type) {
+    case LAYOUT_T_HBOX:
+      box_foreach(object, 0, 0, hbox_size_cb, &rect);
+      break;
+    case LAYOUT_T_VBOX:
+      box_foreach(object, 0, 0, vbox_size_cb, &rect);
+      break;
+    default:
+      break;
+  }
+  *w = rect.w;
+  *h = rect.h;
+  if (*w < ctx->object.rect.w) {
+    *w = ctx->object.rect.w;
+  }
+  if (*h < ctx->object.rect.h) {
+    *h = ctx->object.rect.h;
+  }
+}
+
 static void box_set_dimensions(void *object, int w, int h, enum layout_type_e layout_type)
 {
   struct layout *ctx = object;
@@ -584,54 +731,56 @@ static void box_set_dimensions(void *object, int w, int h, enum layout_type_e la
   }
   int repeat;
   int common_size;
-  do {
-    repeat = 0;
-    // 4 divide <height> by the number of expanded-flagged objects
-    // to get the common size
-    switch (layout_type) {
-      case LAYOUT_T_VBOX:
-        common_size = height_left / expand_cnt;
-        break;
-      case LAYOUT_T_HBOX:
-        common_size = width_left / expand_cnt;
-        break;
-      default:
-        break;
-    }
-    for (int i = 0; i < ctx->count; ++i) {
-      // 5 get minimum <height> for each expanded-flagged object
-      if (ctx->entries[i].flags & EXPAND && !(ctx->entries[i].flags & DONE)) {
-        // if the minimum size exceeds the average size
-        object_get_dimensions(ctx->entries[i].object, &tmp_w, &tmp_h);
-        if (
-            (layout_type == LAYOUT_T_VBOX && common_size < tmp_h) ||
-            (layout_type == LAYOUT_T_HBOX && common_size < tmp_w)) {
-          // decrease it's minimum size from <width>, mark object as 'done' then
-          // set new_average to  <with> divided by the count of remaining
-          // expanded-flagged objects
-          expand_cnt -= 1;
-          repeat = 1;
-          ctx->entries[i].flags |= DONE;
-
-          switch (layout_type) {
-            case LAYOUT_T_VBOX:
-              height_left -= tmp_h;
-              ctx->entries[i].width = w;
-              ctx->entries[i].height = tmp_h;
-              break;
-            case LAYOUT_T_HBOX:
-              width_left -= tmp_w;
-              ctx->entries[i].width = tmp_w;
-              ctx->entries[i].height = h;
-              break;
-            default:
-              break;
-          }
+  if (expand_cnt) {
+    do {
+      repeat = 0;
+      // 4 divide <height> by the number of expanded-flagged objects
+      // to get the common size
+      switch (layout_type) {
+        case LAYOUT_T_VBOX:
+          common_size = height_left / expand_cnt;
           break;
+        case LAYOUT_T_HBOX:
+          common_size = width_left / expand_cnt;
+          break;
+        default:
+          break;
+      }
+      for (int i = 0; i < ctx->count; ++i) {
+        // 5 get minimum <height> for each expanded-flagged object
+        if (ctx->entries[i].flags & EXPAND && !(ctx->entries[i].flags & DONE)) {
+          // if the minimum size exceeds the average size
+          object_get_dimensions(ctx->entries[i].object, &tmp_w, &tmp_h);
+          if (
+              (layout_type == LAYOUT_T_VBOX && common_size < tmp_h) ||
+              (layout_type == LAYOUT_T_HBOX && common_size < tmp_w)) {
+            // decrease it's minimum size from <width>, mark object as 'done' then
+            // set new_average to  <with> divided by the count of remaining
+            // expanded-flagged objects
+            expand_cnt -= 1;
+            repeat = 1;
+            ctx->entries[i].flags |= DONE;
+
+            switch (layout_type) {
+              case LAYOUT_T_VBOX:
+                height_left -= tmp_h;
+                ctx->entries[i].width = w;
+                ctx->entries[i].height = tmp_h;
+                break;
+              case LAYOUT_T_HBOX:
+                width_left -= tmp_w;
+                ctx->entries[i].width = tmp_w;
+                ctx->entries[i].height = h;
+                break;
+              default:
+                break;
+            }
+            break;
+          }
         }
       }
-    }
-  } while (repeat && expand_cnt);
+    } while (repeat && expand_cnt);
+  }
 
   // 6 set all remaining (not 'done') objects to the average-size
   for (int i = 0; i < ctx->count; ++i) {
@@ -666,7 +815,8 @@ void hbox_set_dimensions(void *object, int w, int h)
 struct layout *hbox_new(void)
 {
   struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
-  ret->object.set_dimensions = hbox_set_dimensions;
+  ret->object.set_dimensions = hbox_set_dimensions; /* XXX use generic box function */
+  ret->object.get_dimensions = box_get_dimensions;
   ret->object.draw = box_draw_handler;
   ret->object.event = box_event_handler;
   ret->object.set_position = box_set_position;
@@ -688,7 +838,8 @@ void vbox_set_dimensions(void *object, int w, int h)
 struct layout *vbox_new(void)
 {
   struct layout *ret = object_new(OBJECT_T_LAYOUT, sizeof(*ret));
-  ret->object.set_dimensions = vbox_set_dimensions;
+  ret->object.set_dimensions = vbox_set_dimensions; /* XXX use generic box function */
+  ret->object.get_dimensions = box_get_dimensions;
   ret->object.event = box_event_handler;
   ret->object.draw = box_draw_handler;
   ret->object.set_position = box_set_position;
@@ -886,6 +1037,9 @@ static void draw(void *data)
     void *button1 = button_new("button");
     layout_add(layout, button1, "");
     object_set_on_change(slider, on_change1_cb, label2);
+    //void *checkbox12 = checkbox_new("checkbox");
+    //layout_add(layout, checkbox12, "");
+
     object_set_dimensions(test_win, 100, 100);
 
     object_set_position(test_win, 50, 50);
