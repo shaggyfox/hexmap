@@ -1,4 +1,5 @@
 #include "engine.h"
+#include <assert.h>
 
 enum object_type_e {OBJECT_T_WINDOW, OBJECT_T_WIDGET, OBJECT_T_LAYOUT};
 enum event_type_e {EVENT_T_MOUSE};
@@ -536,7 +537,7 @@ void layout_add(struct layout *layout, void *object, const char *flags)
 }
 
 static struct win_object *box_foreach(void *object, int x, int y,
-    void* (*cb)(void *ctx, void *object, SDL_Rect *rect, void *cb_data), void *cb_data)
+    void* (*cb)(void *ctx, struct layout_widget_entry *object, SDL_Rect *rect, void *cb_data), void *cb_data)
 {
   void *ret = NULL;
   struct layout *ctx = object;
@@ -567,7 +568,7 @@ static struct win_object *box_foreach(void *object, int x, int y,
       .y = draw_y,
       .w = tmp_w,
       .h = tmp_h };
-    if ((ret = cb(object, ctx->entries[i].object, &rect, cb_data))) {
+    if ((ret = cb(object, &ctx->entries[i], &rect, cb_data))) {
       break;
     }
     switch (ctx->type) {
@@ -584,13 +585,13 @@ static struct win_object *box_foreach(void *object, int x, int y,
   return ret;
 }
 
-static void *box_mouse_event_foreach_cb(void *ctx, void *object, SDL_Rect *rect, void *cb_data)
+static void *box_mouse_event_foreach_cb(void *ctx, struct layout_widget_entry *entry, SDL_Rect *rect, void *cb_data)
 {
   struct mouse_event *mouse = cb_data;
   if (abs(rect->x + rect->w / 2 - mouse->x) < rect->w / 2 &&
       abs(rect->y + rect->h / 2 - mouse->y) < rect->h / 2) {
     /* stop loop */
-    return object_inject_event(object, cb_data);
+    return object_inject_event(entry->object, cb_data);
   }
   return NULL; /* keep going */
 }
@@ -604,9 +605,9 @@ static struct win_object *box_event_handler(void *object, struct event_st *event
   return NULL;
 }
 
-static void *box_draw_foreach_callback (void *object, void *entry, SDL_Rect *rect, void* cb_data)
+static void *box_draw_foreach_callback (void *object, struct layout_widget_entry *entry, SDL_Rect *rect, void* cb_data)
 {
-  object_draw(entry);
+  object_draw(entry->object);
   return NULL; /* keep going */
 }
 
@@ -621,9 +622,9 @@ static void box_draw_handler(void *object)
   box_foreach(object, x, y, box_draw_foreach_callback, NULL);
 }
 
-static void *box_set_position_cb(void *object, void *entry, SDL_Rect *rect, void *data)
+static void *box_set_position_cb(void *object, struct layout_widget_entry *entry, SDL_Rect *rect, void *data)
 {
-  object_set_position(entry, rect->x, rect->y);
+  object_set_position(entry->object, rect->x, rect->y);
   return NULL; /* keep on going */
 }
 
@@ -634,23 +635,47 @@ static void box_set_position(void *object, int x, int y)
   box_foreach(object, x, y, box_set_position_cb, NULL);
 }
 
-static void* vbox_size_cb(void *object, void *entry, SDL_Rect *rect, void *cb_data)
+static void* vbox_size_cb(void *object, struct layout_widget_entry *entry, SDL_Rect *rect, void *cb_data)
 {
   SDL_Rect *out_rect = cb_data;
-  if (rect->w > out_rect->w) {
-    out_rect->w = rect->w;
+  int w = 0;
+  if (rect->w > entry->width) {
+    w = rect->w;
+  } else {
+    w = entry->width;
   }
-  out_rect->h += rect->h;
+  int h = 0;
+  if (rect->h > entry->height) {
+    h = rect->h;
+  } else {
+    h = entry->height;
+  }
+  if (w > out_rect->w) {
+    out_rect->w = w;
+  }
+  out_rect->h += h;
   return NULL;
 }
 
-static void* hbox_size_cb(void *object, void *entry, SDL_Rect *rect, void *cb_data)
+static void* hbox_size_cb(void *object, struct layout_widget_entry *entry, SDL_Rect *rect, void *cb_data)
 {
   SDL_Rect *out_rect = cb_data;
-  if (rect->h > out_rect->h) {
-    out_rect->h = rect->h;
+  int h = 0;
+  if (rect->h > entry->height) {
+    h = rect->h;
+  } else {
+    h = entry->height;
   }
-  out_rect->w += rect->w;
+  int w = 0;
+  if (rect->w > entry->width) {
+    w = rect->w;
+  } else {
+    w = entry->width;
+  }
+  if (h > out_rect->h) {
+    out_rect->h = h;
+  }
+  out_rect->w += w;
   return NULL;
 }
 
@@ -671,12 +696,12 @@ static void box_get_dimensions(void *object, int *w, int *h)
   }
   *w = rect.w;
   *h = rect.h;
-  if (*w < ctx->object.rect.w) {
+/*  if (*w < ctx->object.rect.w) {
     *w = ctx->object.rect.w;
   }
   if (*h < ctx->object.rect.h) {
     *h = ctx->object.rect.h;
-  }
+  }*/
 }
 
 static void box_set_dimensions(void *object, int w, int h, enum layout_type_e layout_type)
@@ -712,13 +737,13 @@ static void box_set_dimensions(void *object, int w, int h, enum layout_type_e la
       switch (layout_type) {
         case LAYOUT_T_VBOX:
           height_left -= tmp_h;
-          ctx->entries[i].width = w;
+          ctx->entries[i].width = w > tmp_w ? w : tmp_w;
           ctx->entries[i].height = tmp_h;
           break;
         case LAYOUT_T_HBOX:
           width_left -= tmp_w;
           ctx->entries[i].width = tmp_w;
-          ctx->entries[i].height = h;
+          ctx->entries[i].height = h > tmp_h ? h : tmp_h;
           break;
         default:
           break;
@@ -729,9 +754,9 @@ static void box_set_dimensions(void *object, int w, int h, enum layout_type_e la
       expand_cnt += 1;
     }
   }
-  int repeat;
   int common_size;
   if (expand_cnt) {
+    int repeat;
     do {
       repeat = 0;
       // 4 divide <height> by the number of expanded-flagged objects
@@ -744,6 +769,7 @@ static void box_set_dimensions(void *object, int w, int h, enum layout_type_e la
           common_size = width_left / expand_cnt;
           break;
         default:
+          assert(0);
           break;
       }
       for (int i = 0; i < ctx->count; ++i) {
@@ -764,15 +790,16 @@ static void box_set_dimensions(void *object, int w, int h, enum layout_type_e la
             switch (layout_type) {
               case LAYOUT_T_VBOX:
                 height_left -= tmp_h;
-                ctx->entries[i].width = w;
+                ctx->entries[i].width = w > tmp_w ? w : tmp_w;
                 ctx->entries[i].height = tmp_h;
                 break;
               case LAYOUT_T_HBOX:
                 width_left -= tmp_w;
                 ctx->entries[i].width = tmp_w;
-                ctx->entries[i].height = h;
+                ctx->entries[i].height = h > tmp_h ? h : tmp_h;
                 break;
               default:
+                assert(0);
                 break;
             }
             break;
@@ -780,6 +807,17 @@ static void box_set_dimensions(void *object, int w, int h, enum layout_type_e la
         }
       }
     } while (repeat && expand_cnt);
+  } else {
+    switch (layout_type) {
+      case LAYOUT_T_VBOX:
+        common_size = height_left;
+        break;
+      case LAYOUT_T_HBOX:
+        common_size = width_left;
+        break;
+      default:
+        break;
+    }
   }
 
   // 6 set all remaining (not 'done') objects to the average-size
@@ -788,13 +826,13 @@ static void box_set_dimensions(void *object, int w, int h, enum layout_type_e la
       switch (layout_type) {
         case LAYOUT_T_VBOX:
           object_set_dimensions(ctx->entries[i].object, w, common_size);
-          ctx->entries[i].width = w;
+          ctx->entries[i].width = w > tmp_w ? w : tmp_w;
           ctx->entries[i].height = common_size;
           break;
         case LAYOUT_T_HBOX:
           object_set_dimensions(ctx->entries[i].object, common_size, h);
           ctx->entries[i].width = common_size;
-          ctx->entries[i].height = h;
+          ctx->entries[i].height = h > tmp_h ? h : tmp_h;
           break;
         default:
           break;
@@ -949,7 +987,6 @@ void windowmanager_mouse_down(struct windowmanager *win_manager, int button, int
       if (abs(win->rect.x + win->rect.w / 2 - x) < win->rect.w / 2 &&
           abs(win->rect.y + win->rect.h / 2 - y) < win->rect.h / 2) {
         void *ret = object_inject_mouse_event_down(win, button, x, y);
-        printf("ret=%p\n", ret);
         if (!win_manager->current_event_object) {
           win_manager->current_event_object = ret;
           win_manager->button_down_value = button;
@@ -1037,8 +1074,8 @@ static void draw(void *data)
     void *button1 = button_new("button");
     layout_add(layout, button1, "");
     object_set_on_change(slider, on_change1_cb, label2);
-    //void *checkbox12 = checkbox_new("checkbox");
-    //layout_add(layout, checkbox12, "");
+    void *checkbox12 = checkbox_new("checkbox");
+    layout_add(layout, checkbox12, "");
 
     object_set_dimensions(test_win, 100, 100);
 
