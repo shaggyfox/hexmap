@@ -24,7 +24,8 @@ struct win_object {
   void (*set_position)(void *data, int x, int y);
   void (*get_position)(void *data, int *x, int *y);
   void (*draw)(void *data);
-  struct win_object *(*event)(void *data, struct event_st *event);
+  struct win_object *(*event)(void *data, struct event_st *event, void *cb_data);
+  void *event_cb_data;
   void (*on_change)(void *data, void *cb_data);
   void *on_change_cb_data;
   SDL_Rect rect;
@@ -122,7 +123,7 @@ void *object_inject_event(void *object, struct event_st *event)
 {
   struct win_object *ctx = object;
   if (ctx->event) {
-    return ctx->event(object, event);
+    return ctx->event(object, event, ctx->event_cb_data);
   } else {
     printf("DEBUG no event handler\n");
   }
@@ -304,7 +305,13 @@ void container_draw_handler(void *object)
   object_draw(ctx->object);
 }
 
-void widget_container_set_object(struct widget_container *ctx, void *object)
+struct win_object *container_event_handler(void *object, struct event_st *event, void *cb_data)
+{
+  struct widget_container *ctx = object;
+  return object_inject_event(ctx->object, event);
+}
+
+void container_set_object(struct widget_container *ctx, void *object)
 {
   ctx->object = object;
 }
@@ -317,6 +324,7 @@ struct widget_container *container_new(void *object)
   ret->widget.object.set_position = container_set_position_handler;
   ret->widget.object.get_dimensions = container_get_dimensions_handler;
   ret->widget.object.set_dimensions = container_set_dimensions_handler;
+  ret->widget.object.event = container_event_handler;
   ret->object = object;
   return ret;
 }
@@ -327,8 +335,19 @@ struct widget_container *container_new(void *object)
 
 struct widget_checkbox {
   struct widget_container container;
+  int v;
   /* ... */
 };
+
+struct win_object *widget_checkbox_event_handler(void *object, struct event_st *event, void *cb_data)
+{
+  struct widget_checkbox *cb = cb_data;
+  struct widget_label *ctx = object;
+  cb->v = !cb->v;
+  label_set(ctx, "%s", cb->v ? "1": "0");
+  return NULL;
+}
+
 struct widget_checkbox *checkbox_new(char *name)
 {
   struct layout *layout = hbox_new();
@@ -336,8 +355,11 @@ struct widget_checkbox *checkbox_new(char *name)
   ret = realloc(ret, sizeof(*ret));
   struct widget_label *labela = label_new("0");
   struct widget_label *labelb = label_new(name);
+  labela->widget.object.event = widget_checkbox_event_handler;
+  labela->widget.object.event_cb_data = ret;
   layout_add(layout, labela, "");
   layout_add(layout, labelb, "LEFT");
+  ret->v = 1;
   return ret;
 }
 
@@ -381,7 +403,7 @@ void button_draw(void *object)
   draw_text(x + 2, y + 2, ctx->text);
 }
 
-struct win_object *button_event(void *object, struct event_st *event)
+struct win_object *button_event(void *object, struct event_st *event, void *cb_data)
 {
   if (event->type == EVENT_T_MOUSE) {
     struct mouse_event *mouse = (void*)event;
@@ -476,7 +498,7 @@ struct win_object *slider_mouse(void *object, struct mouse_event *mouse)
   return object;
 }
 
-struct win_object *slider_event(void *object, struct event_st *event)
+struct win_object *slider_event(void *object, struct event_st *event, void *cb_data)
 {
   switch (event->type) {
     case EVENT_T_MOUSE:
@@ -617,7 +639,7 @@ static void *box_mouse_event_foreach_cb(void *ctx, struct layout_widget_entry *e
   return NULL; /* keep going */
 }
 
-static struct win_object *box_event_handler(void *object, struct event_st *event)
+static struct win_object *box_event_handler(void *object, struct event_st *event, void *cb_data)
 {
   struct win_object *ctx = object;
   if (event->type == EVENT_T_MOUSE) {
@@ -942,7 +964,7 @@ void window_draw(void *data)
   }
 }
 
-static struct win_object *window_event_cb(void *object, struct event_st *event)
+static struct win_object *window_event_cb(void *object, struct event_st *event, void *cb_data)
 {
   struct window *ctx = object;
   if (ctx->layout) {
