@@ -264,9 +264,9 @@ struct widget_label *label_new(char *text)
 /* ======================== WIDGET: Checkbox =========================== */
 /* ===================================================================== */
 
-struct widget_checkbox {
+struct widget_container {
   struct widget widget;
-  struct layout *layout;
+  void *object;
 };
 
 
@@ -274,49 +274,70 @@ struct layout *vbox_new(void);
 struct layout *hbox_new(void);
 void layout_add(struct layout *layout, void *object, const char *flags);
 
-void checkbox_get_dimensions_handler(void *object, int *w, int *h)
+void container_get_dimensions_handler(void *object, int *w, int *h)
 {
-  struct widget_checkbox *ctx = object;
-  object_get_dimensions(ctx->layout, w, h);
+  struct widget_container *ctx = object;
+  object_get_dimensions(ctx->object, w, h);
 }
 
-void checkbox_set_dimensions_handler(void *object, int w, int h)
+void container_set_dimensions_handler(void *object, int w, int h)
 {
-  struct widget_checkbox *ctx = object;
-  object_set_dimensions(ctx->layout, w, h);
+  struct widget_container *ctx = object;
+  object_set_dimensions(ctx->object, w, h);
 }
 
-void checkbox_get_position_handler(void *object, int *x, int *y)
+void container_get_position_handler(void *object, int *x, int *y)
 {
-  struct widget_checkbox *ctx = object;
-  object_get_position(ctx->layout, x, y);
+  struct widget_container *ctx = object;
+  object_get_position(ctx->object, x, y);
 }
 
-void checkbox_set_position_handler(void *object, int x, int y)
+void container_set_position_handler(void *object, int x, int y)
 {
-  struct widget_checkbox *ctx = object;
-  object_set_position(ctx->layout, x, y);
+  struct widget_container *ctx = object;
+  object_set_position(ctx->object, x, y);
 }
 
-void checkbox_draw_handler(void *object)
+void container_draw_handler(void *object)
 {
-  struct widget_checkbox *ctx = object;
-  object_draw(ctx->layout);
+  struct widget_container *ctx = object;
+  object_draw(ctx->object);
 }
 
+void widget_container_set_object(struct widget_container *ctx, void *object)
+{
+  ctx->object = object;
+}
+
+struct widget_container *container_new(void *object)
+{
+  struct widget_container *ret = object_new(OBJECT_T_WIDGET, sizeof(*ret));
+  ret->widget.object.draw = container_draw_handler;
+  ret->widget.object.get_position = container_get_position_handler;
+  ret->widget.object.set_position = container_set_position_handler;
+  ret->widget.object.get_dimensions = container_get_dimensions_handler;
+  ret->widget.object.set_dimensions = container_set_dimensions_handler;
+  ret->object = object;
+  return ret;
+}
+
+/* ===================================================================== */
+/* ======================== WIDGET: Radiobuttons ======================= */
+/* ===================================================================== */
+
+struct widget_checkbox {
+  struct widget_container container;
+  /* ... */
+};
 struct widget_checkbox *checkbox_new(char *name)
 {
-  struct widget_checkbox *ret = object_new(OBJECT_T_WIDGET, sizeof(*ret));
-  ret->widget.object.draw = checkbox_draw_handler;
-  ret->widget.object.get_position = checkbox_get_position_handler;
-  ret->widget.object.set_position = checkbox_set_position_handler;
-  ret->widget.object.get_dimensions = checkbox_get_dimensions_handler;
-  ret->widget.object.set_dimensions = checkbox_set_dimensions_handler;
-  ret->layout = hbox_new();
+  struct layout *layout = hbox_new();
+  struct widget_checkbox *ret = (void*)container_new(layout);
+  ret = realloc(ret, sizeof(*ret));
   struct widget_label *labela = label_new("0");
   struct widget_label *labelb = label_new(name);
-  layout_add(ret->layout, labela, "");
-  layout_add(ret->layout, labelb, "LEFT");
+  layout_add(layout, labela, "");
+  layout_add(layout, labelb, "LEFT");
   return ret;
 }
 
